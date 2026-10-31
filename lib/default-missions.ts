@@ -8,14 +8,36 @@ import {
 
 export const FRASES_CARGA_PEDAGOGICAS = [
   "Tejiendo la historia junto a los sabios de la comunidad...",
-  "Consultando a los Apus para armonizar los retos de cada nivel...",
-  "Entrelazando hilos de quipu para nuestra sesión multinivel...",
-  "Preparando los cántaros de sabiduría en el telar de la escuela...",
-  "Escuchando el murmullo del río para afinar los desafíos del día...",
+  "Armonizando los retos interactivos para cada nivel del aula...",
+  "Pintando los paisajes de nuestra tierra con luz del amanecer...",
+  "Preparando las semillas y quipus para la aventura de hoy...",
+  "Afinando las pistas de voz para acompañar a cada niño...",
 ];
 
 export const MENSAJES_CARGA_HUMANOS = FRASES_CARGA_PEDAGOGICAS;
 
+export function generarOpcionesParaRespuesta(respuestaCorrecta: string): string[] {
+  const num = Number(respuestaCorrecta);
+  if (Number.isNaN(num)) {
+    return [respuestaCorrecta, "12", "24", "36"];
+  }
+  const delta1 = Math.max(2, Math.round(num * 0.15));
+  const delta2 = Math.max(4, Math.round(num * 0.28));
+  const delta3 = Math.max(3, Math.round(num * 0.2));
+  const candidatas = Array.from(
+    new Set([
+      String(num),
+      String(Math.max(1, num - delta1)),
+      String(num + delta3),
+      String(num + delta2),
+    ])
+  );
+  while (candidatas.length < 4) {
+    candidatas.push(String(num + candidatas.length * 5));
+  }
+  // Orden determinístico ascendente para que los niños comparen cantidades
+  return candidatas.slice(0, 4).sort((a, b) => Number(a) - Number(b));
+}
 
 export const NIVELES_INICIALES: NivelAulaRow[] = [
   {
@@ -23,8 +45,8 @@ export const NIVELES_INICIALES: NivelAulaRow[] = [
     codigo: "nivel_1",
     nombre: "Nivel 1 · Ciclo III (Semillas)",
     descripcion:
-      "Iniciación en conteo concreto, sumas con decenas y comprensión de relatos cortos",
-    color_hex: "#C85A32",
+      "1.° y 2.° grado: Conteo concreto, agrupación en decenas y sumas sencillas",
+    color_hex: "#238564",
     orden: 1,
     activo: true,
   },
@@ -33,8 +55,8 @@ export const NIVELES_INICIALES: NivelAulaRow[] = [
     codigo: "nivel_2",
     nombre: "Nivel 2 · Ciclo IV (Tejedores)",
     descripcion:
-      "Multiplicación, reparto equitativo, medición de terrenos y lectura inferencial",
-    color_hex: "#1F7A5C",
+      "3.° y 4.° grado: Multiplicación, reparto equitativo y medición de parcelas",
+    color_hex: "#2B6CB0",
     orden: 2,
     activo: true,
   },
@@ -43,8 +65,8 @@ export const NIVELES_INICIALES: NivelAulaRow[] = [
     codigo: "nivel_3",
     nombre: "Nivel 3 · Ciclo V (Amautas)",
     descripcion:
-      "Fracciones, proporcionalidad en cosechas, geometría de andenes y argumentación",
-    color_hex: "#2B6CB0",
+      "5.° y 6.° grado: Fracciones, proporciones, promedios y gestión comunal",
+    color_hex: "#D4653B",
     orden: 3,
     activo: true,
   },
@@ -128,14 +150,17 @@ export const TEMAS_INICIALES: TemaCurricularRow[] = [
 
 export const MISION_PUENTE_INCA: MisionYuyAI = {
   id: "default-qeswachaka",
-  titulo_mision: "El rescate del puente Q'eswachaka",
+  titulo_mision: "El Rescate del Puente Q'eswachaka",
   prompt_sdxl_base:
-    "Warm storybook illustration of an ancient Incan rope bridge over an Andean river canyon at sunrise, golden light, green terraces, vibrant primary school art style",
+    "Warm children storybook illustration of an ancient Incan rope bridge over a turquoise Andean river canyon at sunrise, golden sunlight, green agricultural terraces, children in colorful ponchos",
   fases: [
     {
       numero_fase: 1,
+      titulo_fase: "Trenzado de las Sogas Maestras",
+      prompt_sdxl:
+        "Warm children storybook illustration of Andean villagers and school children weaving golden ichu grass ropes by a mountain river canyon at sunrise, vibrant colors, Ghibli style",
       narrativa_fase:
-        "El puente de ichu que une a nuestras comunidades necesita nuevas sogas trenzadas tras la lluvia de anoche. Cada nivel del aula aportará su saber para tensar la estructura.",
+        "El puente colgante que une a nuestras comunidades necesita nuevas sogas trenzadas tras la lluvia. ¡Si los 3 niveles resolvemos nuestros cálculos, tensaremos la base del puente!",
       retos_grados: [
         {
           grado: 1,
@@ -144,21 +169,24 @@ export const MISION_PUENTE_INCA: MisionYuyAI = {
           tema_curricular: "Agrupación por decenas y unidades en la cosecha",
           area_curricular: "Matemática",
           instruccion:
-            "La comunidad de Huinchiri trajo 15 cuerdas largas de ichu y Chaupibanda trajo 12 cuerdas cortas. ¿Cuántas cuerdas reunimos en total?",
+            "Huinchiri trajo 15 cuerdas largas de ichu y Chaupibanda trajo 12 cuerdas cortas. ¿Cuántas cuerdas reunimos en total?",
           tipo_mecanica: "input_numerico",
+          opciones: ["22", "25", "27", "31"],
           respuesta_correcta: "27",
           feedback_error:
-            "Casi lo logras. Intenta sumar primero los dos grupos de diez para tener veinte, y luego súmale las cinco y las dos cuerdas sueltas.",
+            "Casi lo logras. Junta primero las dos decenas (10 + 10 = 20) y luego súmale las 5 y las 2 cuerdas sueltas.",
         },
         {
           grado: 2,
           nivel_codigo: "nivel_2",
           nivel_nombre: "Nivel 2 · Ciclo IV (Tejedores)",
-          tema_curricular: "Multiplicación por filas y reparto equitativo en chacras",
+          tema_curricular:
+            "Multiplicación por filas y reparto equitativo en chacras",
           area_curricular: "Matemática",
           instruccion:
             "Para asegurar la base necesitamos 4 nudos firmes en cada una de las 8 vigas de piedra. ¿Cuántos nudos debemos atar en total?",
           tipo_mecanica: "input_numerico",
+          opciones: ["24", "28", "32", "36"],
           respuesta_correcta: "32",
           feedback_error:
             "Recuerda la tabla del cuatro: cuatro veces ocho es apenas dos pasitos más después del treinta.",
@@ -167,19 +195,24 @@ export const MISION_PUENTE_INCA: MisionYuyAI = {
           grado: 3,
           nivel_codigo: "nivel_3",
           nivel_nombre: "Nivel 3 · Ciclo V (Amautas)",
-          tema_curricular: "Fracciones equivalentes y reparto de tierras comunales",
+          tema_curricular:
+            "Fracciones equivalentes y reparto de tierras comunales",
           area_curricular: "Matemática",
           instruccion:
-            "El puente mide 60 metros de largo y ya hemos tejido las dos terceras partes (2/3) de la pasarela. ¿Cuántos metros ya están tejidos?",
+            "El puente mide 60 metros de largo y ya hemos tejido las dos terceras partes (2/3). ¿Cuántos metros ya están tejidos?",
           tipo_mecanica: "input_numerico",
+          opciones: ["20", "30", "40", "45"],
           respuesta_correcta: "40",
           feedback_error:
-            "Divide primero los sesenta metros en tres partes iguales para hallar un tercio, y luego toma dos de esas partes.",
+            "Divide primero los 60 metros en 3 partes iguales para hallar un tercio (20 m), y luego toma 2 de esas partes.",
         },
       ],
     },
     {
       numero_fase: 2,
+      titulo_fase: "El Paso de las Llamas y la Cosecha",
+      prompt_sdxl:
+        "Warm children storybook illustration of friendly llamas carrying colorful woven baskets of potatoes and corn across an Incan rope bridge over a bright river canyon",
       narrativa_fase:
         "¡Los cables principales ya cruzan el cañón! Ahora debemos organizar las canastas de alimentos que pasarán hacia la feria escolar comunal.",
       retos_grados: [
@@ -192,40 +225,48 @@ export const MISION_PUENTE_INCA: MisionYuyAI = {
           instruccion:
             "En la orilla había 38 sacos de papa nativa y ya cruzaron 14 sacos. ¿Cuántos sacos faltan cruzar?",
           tipo_mecanica: "input_numerico",
+          opciones: ["20", "22", "24", "28"],
           respuesta_correcta: "24",
           feedback_error:
-            "Resta primero las decenas: a treinta quítale diez y te quedan veinte; luego a las ocho papas sueltas quítales cuatro.",
+            "Resta primero las decenas: a 30 quítale 10 y te quedan 20; luego a las 8 papas sueltas quítales 4.",
         },
         {
           grado: 2,
           nivel_codigo: "nivel_2",
           nivel_nombre: "Nivel 2 · Ciclo IV (Tejedores)",
-          tema_curricular: "Multiplicación por filas y reparto equitativo en chacras",
+          tema_curricular:
+            "Multiplicación por filas y reparto equitativo en chacras",
           area_curricular: "Matemática",
           instruccion:
             "Si 6 llamas cargan 7 canastas de quinua cada una para la escuela, ¿cuántas canastas cruzarán el puente?",
           tipo_mecanica: "input_numerico",
+          opciones: ["36", "40", "42", "48"],
           respuesta_correcta: "42",
           feedback_error:
-            "Piensa en seis grupos de siete: si seis por seis es treinta y seis, súmale seis canastas más.",
+            "Piensa en seis grupos de siete: si 6 por 6 es 36, súmale 6 canastas más.",
         },
         {
           grado: 3,
           nivel_codigo: "nivel_3",
           nivel_nombre: "Nivel 3 · Ciclo V (Amautas)",
-          tema_curricular: "Fracciones equivalentes y reparto de tierras comunales",
+          tema_curricular:
+            "Fracciones equivalentes y reparto de tierras comunales",
           area_curricular: "Matemática",
           instruccion:
-            "Reunimos 120 kilos de maíz morado y destinamos la cuarta parte (1/4) para la olla escolar. ¿Cuántos kilos quedan para el trueque comunal?",
+            "Reunimos 120 kilos de maíz morado y destinamos la cuarta parte (1/4) para la olla escolar. ¿Cuántos kilos quedan para el trueque?",
           tipo_mecanica: "input_numerico",
+          opciones: ["60", "80", "90", "100"],
           respuesta_correcta: "90",
           feedback_error:
-            "La cuarta parte de ciento veinte es treinta kilos. Si separamos esos treinta kilos, ¿cuántos kilos nos quedan de los ciento veinte?",
+            "La cuarta parte de 120 es 30 kilos. Si separamos esos 30 kilos de los 120, ¿cuántos kilos nos quedan?",
         },
       ],
     },
     {
       numero_fase: 3,
+      titulo_fase: "Fiesta de Banderines en la Cumbre",
+      prompt_sdxl:
+        "Warm children storybook illustration of a completed Incan rope bridge decorated with festive colorful Andean flags and flowers, children celebrating under a rainbow",
       narrativa_fase:
         "Para terminar el barandal protector del puente, coloquemos los tejidos con símbolos de nuestra tierra para que todas las niñas y niños crucen seguros.",
       retos_grados: [
@@ -238,9 +279,10 @@ export const MISION_PUENTE_INCA: MisionYuyAI = {
           instruccion:
             "Colocamos 19 banderines rojos a la izquierda y 16 banderines dorados a la derecha. ¿Cuántos banderines adornan el puente?",
           tipo_mecanica: "input_numerico",
+          opciones: ["31", "33", "35", "39"],
           respuesta_correcta: "35",
           feedback_error:
-            "Si al diecinueve le prestas uno del dieciséis formas veinte, y al sumarle los quince que quedan llegas a la respuesta.",
+            "Si al 19 le prestas 1 del 16 formas 20, y al sumarle los 15 que quedan llegas a la respuesta.",
         },
         {
           grado: 2,
@@ -251,22 +293,25 @@ export const MISION_PUENTE_INCA: MisionYuyAI = {
           instruccion:
             "Tenemos 45 metros de soga fina para repartir en partes iguales entre 5 tramos del barandal. ¿Cuántos metros mide cada tramo?",
           tipo_mecanica: "input_numerico",
+          opciones: ["7", "8", "9", "11"],
           respuesta_correcta: "9",
           feedback_error:
-            "Recuerda la tabla del cinco: busca qué número multiplicado por cinco nos da cuarenta y cinco.",
+            "Recuerda la tabla del cinco: busca qué número multiplicado por 5 nos da 45.",
         },
         {
           grado: 3,
           nivel_codigo: "nivel_3",
           nivel_nombre: "Nivel 3 · Ciclo V (Amautas)",
-          tema_curricular: "Registro estadístico de producción agrícola en tablas",
+          tema_curricular:
+            "Registro estadístico de producción agrícola en tablas",
           area_curricular: "Matemática",
           instruccion:
             "Tres comunidades tejieron 24, 30 y 36 metros de barandal respectivamente. ¿Cuál fue el promedio de metros tejidos por comunidad?",
           tipo_mecanica: "input_numerico",
+          opciones: ["26", "28", "30", "34"],
           respuesta_correcta: "30",
           feedback_error:
-            "Suma los tres tramos para obtener el total de noventa metros y divídelo entre las tres comunidades participantes.",
+            "Suma los tres tramos para obtener el total de 90 metros y divídelo entre las 3 comunidades participantes.",
         },
       ],
     },
@@ -388,7 +433,7 @@ export function construirMisionMultinivelContextual(
   selecciones?: SeleccionNivelTema[]
 ): MisionYuyAI {
   const limpio = temaGeneral.trim() || "Saberes de la Cosecha y el Agua";
-  const lugar = contextoComunidad.trim() || "el Valle Sagrado de los Andes";
+  const lugar = contextoComunidad.trim() || "nuestra comunidad andina";
 
   const nivelesUsados: SeleccionNivelTema[] =
     selecciones && selecciones.length > 0
@@ -397,19 +442,19 @@ export function construirMisionMultinivelContextual(
           {
             nivel_codigo: "nivel_1",
             nivel_nombre: "Nivel 1 · Ciclo III (Semillas)",
-            tema_titulo: `Conteo y agrupación por decenas en ${limpio}`,
+            tema_titulo: "Agrupación por decenas y unidades en la cosecha",
             area_curricular: "Matemática",
           },
           {
             nivel_codigo: "nivel_2",
             nivel_nombre: "Nivel 2 · Ciclo IV (Tejedores)",
-            tema_titulo: `Multiplicación y reparto equitativo en ${limpio}`,
+            tema_titulo: "Multiplicación por filas y reparto equitativo",
             area_curricular: "Matemática",
           },
           {
             nivel_codigo: "nivel_3",
             nivel_nombre: "Nivel 3 · Ciclo V (Amautas)",
-            tema_titulo: `Fracciones y proporcionalidad en ${limpio}`,
+            tema_titulo: "Fracciones equivalentes y reparto comunal",
             area_curricular: "Matemática",
           },
         ];
@@ -420,28 +465,21 @@ export function construirMisionMultinivelContextual(
         `Para iniciar "${t}", reunimos 16 atados de semillas en la primera manta y 13 atados en la segunda manta. ¿Cuántos atados tenemos en total?`,
       respuesta: "29",
       feedback:
-        "Recuerda juntar primero las dos decenas para formar veinte, y luego sumar las seis y las tres semillas sueltas.",
+        "Recuerda juntar primero las dos decenas (10 + 10 = 20), y luego sumar las 6 y las 3 semillas sueltas.",
     },
     {
       instruccion: (t: string) =>
         `Aplicando "${t}", organizamos 6 hileras en la chacra escolar con 8 plantas nativas en cada hilera. ¿Cuántas plantas sembramos en total?`,
       respuesta: "48",
       feedback:
-        "Piensa en la tabla del seis: si seis por siete es cuarenta y dos, súmale seis plantas más para llegar al resultado.",
+        "Piensa en la tabla del seis: si 6 por 7 es 42, súmale 6 plantas más para llegar al resultado.",
     },
     {
       instruccion: (t: string) =>
-        `En el reto de "${t}", cosechamos 90 canastas comunales y destinamos las dos terceras partes (2/3) para las familias del ayllu. ¿Cuántas canastas se entregaron?`,
+        `En el reto de "${t}", cosechamos 90 canastas comunales y destinamos las dos terceras partes (2/3) para las familias. ¿Cuántas canastas se entregaron?`,
       respuesta: "60",
       feedback:
-        "Divide primero las noventa canastas entre tres para conocer un tercio, que es treinta, y luego multiplica ese valor por dos.",
-    },
-    {
-      instruccion: (t: string) =>
-        `Para "${t}", registramos 4 parcelas de 125 metros cuadrados cada una. ¿Cuál es la superficie total trabajada por la comunidad?`,
-      respuesta: "500",
-      feedback:
-        "Suma cuatro veces cien para tener cuatrocientos, y luego suma cuatro veces veinticinco para formar otros cien metros.",
+        "Divide primero las 90 canastas entre 3 para conocer un tercio (30), y luego multiplica ese valor por 2.",
     },
   ];
 
@@ -451,28 +489,21 @@ export function construirMisionMultinivelContextual(
         `Avanzando en "${t}", teníamos 45 cántaros de agua fresca y usamos 22 para regar los almácigos. ¿Cuántos cántaros quedan llenos?`,
       respuesta: "23",
       feedback:
-        "Resta primero las decenas: cuarenta menos veinte es veinte; luego a los cinco cántaros sueltos quítales dos.",
+        "Resta primero las decenas: 40 menos 20 es 20; luego a los 5 cántaros sueltos quítales 2.",
     },
     {
       instruccion: (t: string) =>
         `Para "${t}", cada canal de piedra alimenta 7 terrazas. Si abrimos 8 canales al mismo tiempo, ¿cuántas terrazas reciben agua?`,
       respuesta: "56",
       feedback:
-        "Recuerda que siete veces ocho es un número par que está justo después del cincuenta y cinco.",
+        "Recuerda que 7 veces 8 es un número par que está justo después del 55.",
     },
     {
       instruccion: (t: string) =>
-        `Durante "${t}", un reservorio almacena 160 litros de agua y consume el 25% (la cuarta parte) en la mañana. ¿Cuántos litros quedan disponibles?`,
+        `Durante "${t}", un reservorio almacena 160 litros de agua y consume la cuarta parte (1/4) en la mañana. ¿Cuántos litros quedan disponibles?`,
       respuesta: "120",
       feedback:
-        "La cuarta parte de ciento sesenta es cuarenta litros. Si restas esos cuarenta litros al total inicial obtendrás lo que queda.",
-    },
-    {
-      instruccion: (t: string) =>
-        `En "${t}", repartimos 360 semillas en partes iguales entre 9 surcos circulares. ¿Cuántas semillas van en cada surco?`,
-      respuesta: "40",
-      feedback:
-        "Piensa en la tabla del nueve: nueve por cuatro es treinta y seis, así que al agregar el cero de las decenas hallarás la respuesta.",
+        "La cuarta parte de 160 es 40 litros. Si restas esos 40 litros a los 160 iniciales obtendrás lo que queda.",
     },
   ];
 
@@ -482,34 +513,25 @@ export function construirMisionMultinivelContextual(
         `Para culminar "${t}", atamos 24 nudos en las cuerdas claras del quipu y 18 nudos en las cuerdas terracota. ¿Cuántos nudos registramos?`,
       respuesta: "42",
       feedback:
-        "Si juntas veinte más diez tienes treinta, y al sumar cuatro más ocho formas otra decena con dos unidades.",
+        "Si juntas 20 más 10 tienes 30, y al sumar 4 más 8 formas otra decena con dos unidades (12).",
     },
     {
       instruccion: (t: string) =>
         `Cerrando "${t}", cosechamos 54 canastas de aguaymanto para repartir en partes iguales entre 6 familias. ¿Cuántas canastas recibe cada familia?`,
       respuesta: "9",
       feedback:
-        "Recuerda la tabla del seis: busca qué número multiplicado por seis nos da exactamente cincuenta y cuatro.",
+        "Recuerda la tabla del seis: busca qué número multiplicado por 6 nos da exactamente 54.",
     },
     {
       instruccion: (t: string) =>
         `En el cierre de "${t}", tres sectores comunales recolectaron 35, 40 y 45 sacos de quinua. ¿Cuál es el promedio de sacos por sector?`,
       respuesta: "40",
       feedback:
-        "Suma las tres cantidades para obtener ciento veinte sacos en total y divídelo entre los tres sectores de la comunidad.",
-    },
-    {
-      instruccion: (t: string) =>
-        `Para sellar "${t}", un terreno rectangular mide 15 metros de largo por 8 metros de ancho. ¿Cuál es su área total en metros cuadrados?`,
-      respuesta: "120",
-      feedback:
-        "Multiplica diez por ocho para obtener ochenta, luego cinco por ocho que es cuarenta, y junta ambos resultados.",
+        "Suma las tres cantidades para obtener 120 sacos en total y divídelo entre los 3 sectores.",
     },
   ];
 
-  const armarRetos = (
-    banco: typeof bancoFase1
-  ): RetoGrado[] =>
+  const armarRetos = (banco: typeof bancoFase1): RetoGrado[] =>
     nivelesUsados.map((sel, idx) => {
       const plantilla = banco[idx % banco.length];
       return {
@@ -520,33 +542,40 @@ export function construirMisionMultinivelContextual(
         area_curricular: sel.area_curricular || "Matemática",
         instruccion: plantilla.instruccion(sel.tema_titulo),
         tipo_mecanica: "input_numerico",
+        opciones: generarOpcionesParaRespuesta(plantilla.respuesta),
         respuesta_correcta: plantilla.respuesta,
         feedback_error: plantilla.feedback,
       };
     });
 
   return {
-    titulo_mision: `Misión en ${lugar}: ${limpio}`,
-    prompt_sdxl_base: `Warm storybook illustration of an Andean rural school community gathering in ${lugar}, terraced green mountains, sunny sky, friendly colors`,
+    titulo_mision: `Aventura en ${lugar}`,
+    prompt_sdxl_base: `Warm children storybook illustration of an Andean rural community in ${lugar}, green terraced mountains, children and teachers working together, bright sunlight, Studio Ghibli art style`,
     fases: [
       {
         numero_fase: 1,
-        narrativa_fase: `En ${lugar}, nos reunimos junto a los sabios de la comunidad para iniciar la jornada sobre "${limpio}". Cada nivel del aula resolverá su desafío para abrir el primer camino.`,
+        titulo_fase: "Preparando las Semillas y Herramientas",
+        prompt_sdxl: `Warm children storybook illustration of Andean school children gathering seeds and baskets in ${lugar}, morning golden sun, green terraces, vibrant colors`,
+        narrativa_fase: `En ${lugar}, nos reunimos temprano para iniciar la jornada. Cada nivel del aula resolverá su estación para desbloquear la primera etapa de nuestra misión.`,
         retos_grados: armarRetos(bancoFase1),
       },
       {
         numero_fase: 2,
-        narrativa_fase: `El sol ilumina los andenes superiores mientras avanzamos unidos en "${limpio}". Ahora debemos equilibrar el agua y los recursos entre todas las parcelas.`,
+        titulo_fase: "Equilibrando el Agua y las Parcelas",
+        prompt_sdxl: `Warm children storybook illustration of crystal clear water flowing through stone irrigation channels in Andean agricultural terraces in ${lugar}, llamas nearby, bright sky`,
+        narrativa_fase: `¡El sol ilumina los andenes superiores! Ahora trabajemos en equipo para distribuir el agua y organizar las parcelas de toda la comunidad.`,
         retos_grados: armarRetos(bancoFase2),
       },
       {
         numero_fase: 3,
-        narrativa_fase: `¡Estamos en la cumbre de nuestra misión en ${lugar}! Registremos los últimos cálculos en los quipus del salón para celebrar juntos.`,
+        titulo_fase: "El Gran Trueque y Fiesta Comunal",
+        prompt_sdxl: `Warm children storybook illustration of a joyful harvest fair in ${lugar}, colorful woven blankets with potatoes, corn and quinoa, happy children celebrating`,
+        narrativa_fase: `¡Llegamos a la cumbre de nuestra misión en ${lugar}! Registremos los últimos cálculos en el quipu del aula para celebrar la cosecha juntos.`,
         retos_grados: armarRetos(bancoFase3),
       },
     ],
-    narrativa_victoria: `¡Felicitaciones a todos los niveles del aula! Con el esfuerzo unido de cada grupo en ${lugar}, completamos con éxito la jornada sobre "${limpio}".`,
-    prompt_sdxl_victoria: `Warm storybook illustration of a joyful Andean school celebration in ${lugar}, sunny golden afternoon, green terraces, children smiling`,
+    narrativa_victoria: `¡Felicitaciones a todos los niveles del aula! Con el esfuerzo unido de cada grupo en ${lugar}, completamos nuestra misión comunitaria.`,
+    prompt_sdxl_victoria: `Warm children storybook illustration of a joyful Andean school celebration in ${lugar}, golden afternoon, rainbow over green mountains`,
     imagen_base_url: "/fallbacks/andes-bg.svg",
     imagen_victoria_url: "/fallbacks/andes-victory.svg",
   };

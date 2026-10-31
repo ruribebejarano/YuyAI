@@ -32,7 +32,9 @@ import {
   Plus,
   Layers,
   GraduationCap,
-  ArrowRight,
+  Wand2,
+  Eye,
+  Edit3,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
@@ -50,16 +52,49 @@ import {
   DocumentoCurricularRow,
 } from "@/lib/types";
 
+const ESCENARIOS_VISUALES = [
+  {
+    id: "chacra",
+    emoji: "🥔",
+    titulo: "Cosecha en la Chacra",
+    contexto: "La cosecha comunitaria de papas nativas y maíz en la chacra escolar",
+    estiloPrompt: "children harvesting potatoes and corn in green Andean terraces",
+  },
+  {
+    id: "puente",
+    emoji: "🌉",
+    titulo: "Puente Inca Q'eswachaka",
+    contexto: "El tejido cooperativo del puente colgante de ichu sobre el río",
+    estiloPrompt: "ancient Incan rope bridge over a turquoise mountain river canyon",
+  },
+  {
+    id: "feria",
+    emoji: "🦙",
+    titulo: "Feria y Trueque con Llamas",
+    contexto: "La feria dominical de trueque y caravana de alpacas en la plaza",
+    estiloPrompt: "colorful Andean market square with friendly llamas and woven baskets",
+  },
+  {
+    id: "agua",
+    emoji: "💧",
+    titulo: "Canales de Agua de los Apus",
+    contexto: "El reparto del agua cristalina por los canales de piedra y andenes",
+    estiloPrompt: "crystal water flowing through Incan stone channels in sunny mountains",
+  },
+];
+
 export default function MaestroDashboardPage() {
   const router = useRouter();
+
+  // Pestaña activa para que no haya scroll infinito ni confusión
+  const [tabActiva, setTabActiva] = useState<
+    "estudio" | "curriculo" | "progreso"
+  >("estudio");
 
   const [niveles, setNiveles] = useState<NivelAulaRow[]>(NIVELES_INICIALES);
   const [temas, setTemas] = useState<TemaCurricularRow[]>(TEMAS_INICIALES);
   const [documentos, setDocumentos] = useState<DocumentoCurricularRow[]>([]);
   const [alumnos, setAlumnos] = useState<AlumnoRow[]>(ALUMNOS_DEMO);
-  const [misionesGuardadas, setMisionesGuardadas] = useState<MisionYuyAI[]>([
-    MISION_INICIAL_DEMO,
-  ]);
   const [cargandoDB, setCargandoDB] = useState(true);
 
   const [temaSeleccionadoPorNivel, setTemaSeleccionadoPorNivel] = useState<
@@ -69,31 +104,28 @@ export default function MaestroDashboardPage() {
     nivel_2: "tem-3",
     nivel_3: "tem-5",
   });
-  const [nivelesActivosHoy, setNivelesActivosHoy] = useState<
-    Record<string, boolean>
-  >({
-    nivel_1: true,
-    nivel_2: true,
-    nivel_3: true,
-  });
   const [contextoRural, setContextoRural] = useState(
-    "La cosecha comunitaria de papas nativas y maíz en nuestra chacra escolar"
+    ESCENARIOS_VISUALES[0].contexto
   );
 
+  // Estado de la Misión en el Estudio Interactivo (Derecha)
+  const [misionEstudio, setMisionEstudio] =
+    useState<MisionYuyAI>(MISION_INICIAL_DEMO);
+  const [fasePreviewIdx, setFasePreviewIdx] = useState<number>(0);
+  const [imagenPreviewUrl, setImagenPreviewUrl] = useState<string>(
+    "/fallbacks/andes-bg.svg"
+  );
+  const [pintandoPreview, setPintandoPreview] = useState<boolean>(false);
+  const [tejiendoMision, setTejiendoMision] = useState(false);
+  const [indiceMensaje, setIndiceMensaje] = useState(0);
+
+  // Estado para subida de PDF Curricular
   const [subiendoPdf, setSubiendoPdf] = useState(false);
   const [mensajePdf, setMensajePdf] = useState<string | null>(null);
-  const [nivelFiltroGrafo, setNivelFiltroGrafo] = useState<string>("TODOS");
-
   const [mostrarModalNuevoTema, setMostrarModalNuevoTema] = useState(false);
   const [nuevoTemaNivel, setNuevoTemaNivel] = useState("nivel_1");
   const [nuevoTemaArea, setNuevoTemaArea] = useState("Matemática");
   const [nuevoTemaTitulo, setNuevoTemaTitulo] = useState("");
-  const [nuevoTemaDesc, setNuevoTemaDesc] = useState("");
-
-  const [tejiendoMision, setTejiendoMision] = useState(false);
-  const [indiceMensaje, setIndiceMensaje] = useState(0);
-  const [misionRecienCreada, setMisionRecienCreada] =
-    useState<MisionYuyAI | null>(null);
 
   const cargarDatosSupabase = async () => {
     setCargandoDB(true);
@@ -118,7 +150,7 @@ export default function MaestroDashboardPage() {
             .from("misiones_plantillas")
             .select("*")
             .order("fecha_creacion", { ascending: false })
-            .limit(10),
+            .limit(5),
         ]);
 
       const nivelesDB =
@@ -140,23 +172,18 @@ export default function MaestroDashboardPage() {
         setAlumnos(resAlumnos.data as AlumnoRow[]);
       }
       if (resMisiones.data && resMisiones.data.length > 0) {
-        const mapeadas: MisionYuyAI[] = resMisiones.data
-          .map((row: { id: string; fases_json: MisionYuyAI }) => {
-            if (row.fases_json && row.fases_json.fases) {
-              return { ...row.fases_json, id: row.id };
-            }
-            return null;
-          })
-          .filter(Boolean) as MisionYuyAI[];
-        if (mapeadas.length > 0) {
-          setMisionesGuardadas(mapeadas);
+        const primera = resMisiones.data[0]?.fases_json as MisionYuyAI;
+        if (
+          primera &&
+          Array.isArray(primera.fases) &&
+          primera.fases[0]?.retos_grados?.length >= 2
+        ) {
+          setMisionEstudio(primera);
         }
       }
 
       const mapaSeleccion: Record<string, string> = {};
-      const mapaActivos: Record<string, boolean> = {};
       nivelesDB.forEach((niv) => {
-        mapaActivos[niv.codigo] = true;
         const temasDelNivel = temasDB.filter(
           (t) => t.nivel_codigo === niv.codigo
         );
@@ -165,12 +192,8 @@ export default function MaestroDashboardPage() {
         }
       });
       setTemaSeleccionadoPorNivel((prev) => ({ ...mapaSeleccion, ...prev }));
-      setNivelesActivosHoy((prev) => ({ ...mapaActivos, ...prev }));
-      if (nivelesDB.length > 0) {
-        setNuevoTemaNivel(nivelesDB[0].codigo);
-      }
     } catch {
-      // Mantiene datos semilla si hay desconexión
+      // Mantiene datos iniciales
     } finally {
       setCargandoDB(false);
     }
@@ -179,6 +202,39 @@ export default function MaestroDashboardPage() {
   useEffect(() => {
     cargarDatosSupabase();
   }, []);
+
+  // Pintar vista previa en RunPod cuando cambia la misión en el estudio
+  const generarImagenPreviewRunPod = async (promptUsar?: string) => {
+    setPintandoPreview(true);
+    const fase =
+      misionEstudio.fases[fasePreviewIdx] || misionEstudio.fases[0];
+    const promptFinal =
+      promptUsar ||
+      fase?.prompt_sdxl ||
+      misionEstudio.prompt_sdxl_base ||
+      "Warm storybook illustration of Andean rural school children";
+
+    try {
+      const res = await fetch("/api/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: promptFinal }),
+      });
+      const data = await res.json();
+      if (data?.imageUrl) {
+        setImagenPreviewUrl(data.imageUrl);
+      }
+    } catch {
+      setImagenPreviewUrl("/fallbacks/andes-bg.svg");
+    } finally {
+      setPintandoPreview(false);
+    }
+  };
+
+  useEffect(() => {
+    generarImagenPreviewRunPod();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [misionEstudio.titulo_mision, fasePreviewIdx]);
 
   useEffect(() => {
     if (!tejiendoMision) return;
@@ -194,7 +250,7 @@ export default function MaestroDashboardPage() {
 
     setSubiendoPdf(true);
     setMensajePdf(
-      `Leyendo "${file.name}" y organizando los temas por nivel en la base de datos...`
+      `Extrayendo temas por nivel de "${file.name}" y guardando en Supabase...`
     );
 
     try {
@@ -210,17 +266,11 @@ export default function MaestroDashboardPage() {
       if (data.temas && Array.isArray(data.temas)) {
         await cargarDatosSupabase();
         setMensajePdf(
-          `¡Documento "${file.name}" integrado! Se identificaron y guardaron ${data.temas.length} temas curriculares organizados por niveles.`
-        );
-      } else {
-        setMensajePdf(
-          "El documento fue procesado. Revisa el mapa curricular actualizado."
+          `¡Listo! Se extrajeron ${data.temas.length} temas de "${file.name}" y ya están disponibles por Nivel.`
         );
       }
     } catch {
-      setMensajePdf(
-        "Se guardaron los temas base en el mapa curricular del aula."
-      );
+      setMensajePdf("Se actualizaron los temas del mapa curricular.");
     } finally {
       setSubiendoPdf(false);
       e.target.value = "";
@@ -240,13 +290,8 @@ export default function MaestroDashboardPage() {
       nivel_nombre: nivelObj?.nombre || nuevoTemaNivel,
       area_curricular: nuevoTemaArea,
       titulo_tema: nuevoTemaTitulo.trim(),
-      competencia_minedu:
-        nuevoTemaArea === "Matemática"
-          ? "Resuelve problemas de cantidad"
-          : "Indaga y se comunica en su lengua materna",
-      desempeno_esperado:
-        nuevoTemaDesc.trim() ||
-        `Aplicación práctica de ${nuevoTemaTitulo.trim()} en el aula.`,
+      competencia_minedu: "Resuelve problemas de cantidad",
+      desempeno_esperado: `Aplicación práctica de ${nuevoTemaTitulo.trim()} en la comunidad.`,
       estado: "en_curso",
       orden: temas.length + 1,
     };
@@ -274,7 +319,6 @@ export default function MaestroDashboardPage() {
         [temaFinal.nivel_codigo]: temaFinal.id,
       }));
       setNuevoTemaTitulo("");
-      setNuevoTemaDesc("");
       setMostrarModalNuevoTema(false);
     } catch {
       setTemas((prev) => [nuevo, ...prev]);
@@ -287,23 +331,21 @@ export default function MaestroDashboardPage() {
     setTejiendoMision(true);
     setIndiceMensaje(0);
 
-    const selecciones = niveles
-      .filter((n) => nivelesActivosHoy[n.codigo])
-      .map((niv) => {
-        const idTema = temaSeleccionadoPorNivel[niv.codigo];
-        const temaObj =
-          temas.find((t) => t.id === idTema) ||
-          temas.find((t) => t.nivel_codigo === niv.codigo);
-        return {
-          nivel_codigo: niv.codigo,
-          nivel_nombre: niv.nombre,
-          tema_titulo:
-            temaObj?.titulo_tema || "Resolución de problemas comunitarios",
-          area_curricular: temaObj?.area_curricular || "Matemática",
-          competencia_minedu:
-            temaObj?.competencia_minedu || "Resuelve problemas de cantidad",
-        };
-      });
+    const selecciones = niveles.map((niv) => {
+      const idTema = temaSeleccionadoPorNivel[niv.codigo];
+      const temaObj =
+        temas.find((t) => t.id === idTema) ||
+        temas.find((t) => t.nivel_codigo === niv.codigo);
+      return {
+        nivel_codigo: niv.codigo,
+        nivel_nombre: niv.nombre,
+        tema_titulo:
+          temaObj?.titulo_tema || "Resolución de problemas comunitarios",
+        area_curricular: temaObj?.area_curricular || "Matemática",
+        competencia_minedu:
+          temaObj?.competencia_minedu || "Resuelve problemas de cantidad",
+      };
+    });
 
     const resumenTemas = selecciones.map((s) => s.tema_titulo).join(" · ");
 
@@ -320,26 +362,50 @@ export default function MaestroDashboardPage() {
 
       const data = await res.json();
       if (data.mision) {
-        setMisionRecienCreada(data.mision);
-        setMisionesGuardadas((prev) => [data.mision, ...prev]);
+        setMisionEstudio(data.mision);
+        setFasePreviewIdx(0);
         localStorage.setItem(
           "yuyai_mision_activa",
           JSON.stringify(data.mision)
         );
       }
     } catch {
-      setMisionRecienCreada(MISION_INICIAL_DEMO);
-      localStorage.setItem(
-        "yuyai_mision_activa",
-        JSON.stringify(MISION_INICIAL_DEMO)
-      );
+      setMisionEstudio(MISION_INICIAL_DEMO);
     } finally {
       setTejiendoMision(false);
     }
   };
 
-  const lanzarMisionAlProyector = (mision: MisionYuyAI) => {
-    localStorage.setItem("yuyai_mision_activa", JSON.stringify(mision));
+  const actualizarPreguntaEnVivo = (
+    retoIdx: number,
+    nuevaInstruccion: string,
+    nuevaRespuesta: string
+  ) => {
+    setMisionEstudio((prev) => {
+      const nuevasFases = prev.fases.map((f, fIdx) => {
+        if (fIdx !== fasePreviewIdx) return f;
+        const nuevosRetos = f.retos_grados.map((r, rIdx) =>
+          rIdx === retoIdx
+            ? {
+                ...r,
+                instruccion: nuevaInstruccion,
+                respuesta_correcta: nuevaRespuesta,
+              }
+            : r
+        );
+        return { ...f, retos_grados: nuevosRetos };
+      });
+      const actualizada = { ...prev, fases: nuevasFases };
+      localStorage.setItem("yuyai_mision_activa", JSON.stringify(actualizada));
+      return actualizada;
+    });
+  };
+
+  const lanzarMisionAlProyector = () => {
+    localStorage.setItem(
+      "yuyai_mision_activa",
+      JSON.stringify(misionEstudio)
+    );
     router.push("/aula/mision-viva");
   };
 
@@ -398,234 +464,499 @@ export default function MaestroDashboardPage() {
     },
   ];
 
+  const fasePreviewActual =
+    misionEstudio.fases[fasePreviewIdx] || misionEstudio.fases[0];
+
   return (
-    <div className="min-h-screen bg-crema-100 text-tierra-900 pb-16">
-      {/* Barra Superior Cálida de Escuela Rural */}
+    <div className="min-h-screen bg-crema-100 text-tierra-900 pb-10">
+      {/* CABECERA CON NAVEGACIÓN POR PESTAÑAS CLARAS */}
       <header className="sticky top-0 z-30 border-b border-crema-300 bg-crema-50/95 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="w-10 h-10 rounded-xl bg-terracotta-500 flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0 hover:bg-terracotta-600 transition-colors"
+              className="w-10 h-10 rounded-xl bg-terracotta-500 flex items-center justify-center text-white font-bold text-lg shadow-sm hover:bg-terracotta-600 transition-colors"
             >
               Y
             </Link>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg sm:text-xl font-bold text-tierra-900 truncate">
-                  Cuaderno Pedagógico Multinivel
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-bold text-tierra-900">
+                  Estudio Docente YuyAI
                 </h1>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-valle-100 text-valle-700 border border-valle-500/30">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-valle-100 text-valle-700 border border-valle-500/30">
                   <Database className="w-3 h-3" />
-                  {cargandoDB ? "Sincronizando..." : "Supabase Conectado"}
+                  {cargandoDB ? "Sincronizando..." : "Conectado"}
                 </span>
               </div>
-              <p className="text-xs text-tierra-600 truncate">
-                Currículo Nacional MINEDU por Niveles · Gestión de PDF y Grafo
-                Curricular
+              <p className="text-xs text-tierra-600 hidden sm:block">
+                Planificación Multinivel MINEDU + Escenarios Ilustrados con RunPod
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          {/* 3 PESTAÑAS CLARAS PARA QUE TODO SEA INTUITIVO Y SIN SCROLL LARGO */}
+          <div className="flex items-center gap-1.5 bg-crema-200/70 p-1 rounded-2xl border border-crema-300">
             <button
-              onClick={() =>
-                lanzarMisionAlProyector(
-                  misionRecienCreada ||
-                    misionesGuardadas[0] ||
-                    MISION_INICIAL_DEMO
-                )
-              }
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-valle-600 hover:bg-valle-700 text-white font-bold text-sm shadow-sm transition-all cursor-pointer"
+              type="button"
+              onClick={() => setTabActiva("estudio")}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                tabActiva === "estudio"
+                  ? "bg-white text-terracotta-600 shadow-sm"
+                  : "text-tierra-700 hover:text-tierra-900"
+              }`}
             >
-              <Play className="w-4 h-4 fill-current" />
-              Abrir Proyector del Aula
+              <Sparkles className="w-4 h-4" />
+              <span>1. Crear Clase del Día</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTabActiva("curriculo")}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                tabActiva === "curriculo"
+                  ? "bg-white text-terracotta-600 shadow-sm"
+                  : "text-tierra-700 hover:text-tierra-900"
+              }`}
+            >
+              <Network className="w-4 h-4" />
+              <span>2. PDF y Mapa Curricular</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTabActiva("progreso")}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                tabActiva === "progreso"
+                  ? "bg-white text-terracotta-600 shadow-sm"
+                  : "text-tierra-700 hover:text-tierra-900"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>3. Avance del Aula</span>
             </button>
           </div>
+
+          <button
+            onClick={lanzarMisionAlProyector}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-valle-600 hover:bg-valle-700 text-white font-bold text-xs sm:text-sm shadow-sm transition-all cursor-pointer"
+          >
+            <Play className="w-4 h-4 fill-current" />
+            <span>Ir a la Pizarra del Aula</span>
+          </button>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-8">
-        {/* PASO 1: SUBIR PDF CURRICULAR Y GRAFO DE NIVELES Y TEMAS */}
-        <section className="rounded-3xl bg-white border border-crema-300 shadow-sm p-5 sm:p-7">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-crema-200">
-            <div className="space-y-1 max-w-2xl">
-              <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-terracotta-600">
-                <Network className="w-4 h-4" />
-                Paso 1 · Mapa Curricular por Niveles (MINEDU)
-              </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-tierra-900">
-                Niveles del Aula y Temas Curriculares desde PDF
-              </h2>
-              <p className="text-sm text-tierra-600 leading-relaxed">
-                Sube el documento PDF con la programación curricular o unidades
-                de tu escuela. El sistema reconoce automáticamente los temas
-                para cada <strong>Nivel</strong> y los guarda en la base de
-                datos para que armes tus clases diarias.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <label
-                className={`inline-flex items-center gap-2.5 px-4 py-3 rounded-2xl font-bold text-sm cursor-pointer transition-all shadow-sm ${
-                  subiendoPdf
-                    ? "bg-crema-200 text-tierra-800 cursor-wait"
-                    : "bg-terracotta-500 hover:bg-terracotta-600 text-white"
-                }`}
-              >
-                <Upload className="w-4 h-4" />
-                <span>
-                  {subiendoPdf
-                    ? "Analizando PDF..."
-                    : "Subir PDF de Temas MINEDU"}
-                </span>
-                <input
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  onChange={manejarSubidaPdf}
-                  disabled={subiendoPdf}
-                  className="hidden"
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={() => setMostrarModalNuevoTema((v) => !v)}
-                className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-crema-100 hover:bg-crema-200 text-tierra-800 border border-crema-300 font-bold text-sm transition-colors cursor-pointer"
-              >
-                <Plus className="w-4 h-4 text-terracotta-600" />
-                Añadir Tema Manual
-              </button>
-            </div>
-          </div>
-
-          {mensajePdf && (
-            <div className="mt-4 p-4 rounded-2xl bg-valle-50 border border-valle-500/30 text-valle-700 text-sm flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <FileText className="w-5 h-5 shrink-0 text-valle-600" />
-                <span className="font-medium break-words">{mensajePdf}</span>
-              </div>
-              <button
-                onClick={() => setMensajePdf(null)}
-                className="text-xs font-bold underline shrink-0"
-              >
-                Cerrar
-              </button>
-            </div>
-          )}
-
-          {mostrarModalNuevoTema && (
-            <form
-              onSubmit={manejarCrearTemaManual}
-              className="mt-4 p-5 rounded-2xl bg-crema-50 border border-crema-300 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end"
-            >
-              <div>
-                <label className="block text-xs font-bold text-tierra-700 mb-1">
-                  Nivel Destino
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-5">
+        {/* =====================================================================
+            PESTAÑA 1: ESTUDIO INTERACTIVO PARA CREAR Y PREVISUALIZAR LA CLASE
+        ===================================================================== */}
+        {tabActiva === "estudio" && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* COLUMNA IZQUIERDA (5 cols): CONFIGURADOR EN 2 PASOS SIMPLES */}
+            <section className="lg:col-span-5 rounded-3xl bg-white border border-crema-300 shadow-sm p-5 space-y-5">
+              <div className="flex items-center justify-between border-b border-crema-200 pb-3">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-terracotta-600">
+                    Configurador Rápido
+                  </span>
+                  <h2 className="text-lg font-bold text-tierra-900">
+                    Diseña la Aventura Multinivel
+                  </h2>
+                </div>
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-crema-100 hover:bg-crema-200 text-tierra-800 border border-crema-300 text-xs font-bold cursor-pointer">
+                  <Upload className="w-3.5 h-3.5 text-terracotta-600" />
+                  <span>{subiendoPdf ? "Leyendo..." : "Subir PDF"}</span>
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={manejarSubidaPdf}
+                    disabled={subiendoPdf}
+                    className="hidden"
+                  />
                 </label>
-                <select
-                  value={nuevoTemaNivel}
-                  onChange={(e) => setNuevoTemaNivel(e.target.value)}
-                  className="w-full rounded-xl border border-crema-300 bg-white px-3 py-2 text-sm text-tierra-900"
-                >
-                  {niveles.map((n) => (
-                    <option key={n.codigo} value={n.codigo}>
-                      {n.nombre}
-                    </option>
-                  ))}
-                </select>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-tierra-700 mb-1">
-                  Área Curricular
-                </label>
-                <select
-                  value={nuevoTemaArea}
-                  onChange={(e) => setNuevoTemaArea(e.target.value)}
-                  className="w-full rounded-xl border border-crema-300 bg-white px-3 py-2 text-sm text-tierra-900"
-                >
-                  <option value="Matemática">Matemática</option>
-                  <option value="Ciencia y Tecnología">
-                    Ciencia y Tecnología
-                  </option>
-                  <option value="Comunicación">Comunicación</option>
-                  <option value="Personal Social">Personal Social</option>
-                </select>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-tierra-700 mb-1">
-                  Título del Tema Curricular
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={nuevoTemaTitulo}
-                  onChange={(e) => setNuevoTemaTitulo(e.target.value)}
-                  placeholder="Ej: Medición de terrenos y perímetros en pasos"
-                  className="w-full rounded-xl border border-crema-300 bg-white px-3 py-2 text-sm text-tierra-900"
-                />
-              </div>
-              <div>
+
+              {mensajePdf && (
+                <div className="p-3 rounded-xl bg-valle-50 border border-valle-500/30 text-valle-700 text-xs font-medium flex items-center justify-between gap-2">
+                  <span>{mensajePdf}</span>
+                  <button
+                    onClick={() => setMensajePdf(null)}
+                    className="font-bold underline"
+                  >
+                    OK
+                  </button>
+                </div>
+              )}
+
+              <form onSubmit={manejarArmarClaseDelDia} className="space-y-4">
+                {/* Paso A: Elegir Escenario Visual con Tarjetas Ilustradas */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-tierra-700 mb-2">
+                    Paso A · Elige el Escenario que pintará RunPod:
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    {ESCENARIOS_VISUALES.map((esc) => {
+                      const seleccionado = contextoRural === esc.contexto;
+                      return (
+                        <button
+                          key={esc.id}
+                          type="button"
+                          onClick={() => setContextoRural(esc.contexto)}
+                          className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                            seleccionado
+                              ? "bg-terracotta-50 border-terracotta-500 ring-2 ring-terracotta-500/20"
+                              : "bg-crema-50 border-crema-200 hover:border-crema-300"
+                          }`}
+                        >
+                          <span className="text-xl">{esc.emoji}</span>
+                          <span className="text-xs font-bold text-tierra-900 leading-tight">
+                            {esc.titulo}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={contextoRural}
+                    onChange={(e) => setContextoRural(e.target.value)}
+                    placeholder="O escribe tu propio escenario comunitario..."
+                    className="w-full rounded-xl bg-crema-50 border border-crema-300 px-3 py-2 text-xs sm:text-sm text-tierra-900 focus:outline-none focus:border-terracotta-500"
+                  />
+                </div>
+
+                {/* Paso B: Elegir qué tema curricular resuelve cada Nivel */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-tierra-700">
+                      Paso B · Tema Curricular para cada Nivel:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setTabActiva("curriculo")}
+                      className="text-xs font-bold text-terracotta-600 hover:underline cursor-pointer"
+                    >
+                      Ver Grafo Completo →
+                    </button>
+                  </div>
+
+                  {niveles.map((niv, idx) => {
+                    const temasNivel = temas.filter(
+                      (t) => t.nivel_codigo === niv.codigo
+                    );
+                    const est = paletaPorOrden[idx % paletaPorOrden.length];
+
+                    return (
+                      <div
+                        key={niv.codigo}
+                        className="p-3 rounded-2xl bg-crema-50 border border-crema-300 space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${est.badge}`}
+                          >
+                            {niv.nombre}
+                          </span>
+                          <span className="text-[11px] text-tierra-600">
+                            {temasNivel.length} temas en BD
+                          </span>
+                        </div>
+
+                        <select
+                          value={temaSeleccionadoPorNivel[niv.codigo] || ""}
+                          onChange={(e) =>
+                            setTemaSeleccionadoPorNivel((prev) => ({
+                              ...prev,
+                              [niv.codigo]: e.target.value,
+                            }))
+                          }
+                          className="w-full rounded-xl bg-white border border-crema-300 px-2.5 py-1.5 text-xs sm:text-sm text-tierra-900 font-medium focus:outline-none focus:border-terracotta-500"
+                        >
+                          {temasNivel.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              [{t.area_curricular}] {t.titulo_tema}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+
                 <button
                   type="submit"
-                  className="w-full py-2 px-4 rounded-xl bg-valle-600 hover:bg-valle-700 text-white font-bold text-sm cursor-pointer"
+                  disabled={tejiendoMision}
+                  className="w-full py-3.5 px-5 rounded-2xl bg-terracotta-500 hover:bg-terracotta-600 disabled:opacity-60 text-white font-bold text-sm sm:text-base shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  Guardar Tema
+                  {tejiendoMision ? (
+                    <>
+                      <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                      <span>{MENSAJES_CARGA_HUMANOS[indiceMensaje]}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="w-5 h-5" />
+                      <span>Generar Clase + Ilustrar Escenario</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </section>
+
+            {/* COLUMNA DERECHA (7 cols): VISTA PREVIA EN VIVO Y EDITOR INTERACTIVO DE LA CLASE */}
+            <section className="lg:col-span-7 rounded-3xl bg-white border-2 border-crema-300 shadow-sm overflow-hidden">
+              {/* Banner Superior con la Ilustración Generada por RunPod */}
+              <div className="relative h-52 sm:h-60 bg-tierra-900 overflow-hidden">
+                <img
+                  src={imagenPreviewUrl}
+                  alt={misionEstudio.titulo_mision}
+                  onError={() => setImagenPreviewUrl("/fallbacks/andes-bg.svg")}
+                  className={`w-full h-full object-cover transition-all duration-500 ${
+                    pintandoPreview ? "scale-105 blur-[2px] opacity-75" : ""
+                  }`}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-tierra-900/90 via-tierra-900/30 to-transparent" />
+
+                <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-crema-50/95 text-tierra-900 shadow-sm">
+                    <Eye className="w-3.5 h-3.5 text-terracotta-500" />
+                    {pintandoPreview
+                      ? "RunPod GPU está pintando la escena..."
+                      : "Vista Previa del Escenario (RunPod SDXL Turbo)"}
+                  </span>
+
+                  <button
+                    type="button"
+                    disabled={pintandoPreview}
+                    onClick={() => generarImagenPreviewRunPod()}
+                    className="px-3 py-1 rounded-full text-xs font-bold bg-terracotta-500 hover:bg-terracotta-600 text-white shadow-sm flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <Wand2 className="w-3.5 h-3.5" />
+                    <span>Pintar Otra Variación</span>
+                  </button>
+                </div>
+
+                <div className="absolute bottom-3 left-4 right-4 flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-crema-200">
+                      Clase Lista para Proyectar
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-bold text-white">
+                      {misionEstudio.titulo_mision}
+                    </h3>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={lanzarMisionAlProyector}
+                    className="px-5 py-2.5 rounded-xl bg-valle-500 hover:bg-valle-600 text-white font-bold text-sm shadow-md flex items-center gap-2 cursor-pointer"
+                  >
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>Proyectar en el Aula Ahora</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Selector de las 3 Etapas de la Clase */}
+              <div className="p-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-crema-200 pb-3">
+                  <div className="flex items-center gap-2">
+                    {misionEstudio.fases.map((f, idx) => (
+                      <button
+                        key={f.numero_fase}
+                        type="button"
+                        onClick={() => setFasePreviewIdx(idx)}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          fasePreviewIdx === idx
+                            ? "bg-tierra-800 text-white shadow-sm"
+                            : "bg-crema-100 text-tierra-700 hover:bg-crema-200"
+                        }`}
+                      >
+                        Etapa {f.numero_fase}:{" "}
+                        {f.titulo_fase || `Parte ${f.numero_fase}`}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-xs text-tierra-600 flex items-center gap-1">
+                    <Edit3 className="w-3.5 h-3.5 text-terracotta-500" />
+                    Puedes editar cualquier pregunta antes de proyectar
+                  </span>
+                </div>
+
+                {/* Relato de la etapa seleccionada */}
+                <div className="p-3.5 rounded-2xl bg-crema-50 border border-crema-200 text-sm text-tierra-800 italic">
+                  “{fasePreviewActual?.narrativa_fase}”
+                </div>
+
+                {/* Tarjetas de los 3 Niveles en esta Etapa (Editables en vivo) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {fasePreviewActual?.retos_grados.map((reto, rIdx) => {
+                    const est = paletaPorOrden[rIdx % paletaPorOrden.length];
+                    return (
+                      <div
+                        key={rIdx}
+                        className="p-3.5 rounded-2xl bg-crema-50 border border-crema-300 flex flex-col justify-between gap-2.5"
+                      >
+                        <div>
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold border mb-1.5 ${est.badge}`}
+                          >
+                            {reto.nivel_nombre || `Nivel ${rIdx + 1}`}
+                          </span>
+                          <p className="text-[11px] font-bold text-tierra-600 mb-1">
+                            {reto.tema_curricular}
+                          </p>
+                          <textarea
+                            rows={3}
+                            value={reto.instruccion}
+                            onChange={(e) =>
+                              actualizarPreguntaEnVivo(
+                                rIdx,
+                                e.target.value,
+                                reto.respuesta_correcta
+                              )
+                            }
+                            className="w-full rounded-xl bg-white border border-crema-300 p-2 text-xs font-medium text-tierra-900 focus:outline-none focus:border-terracotta-500"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-crema-200">
+                          <span className="text-xs font-bold text-tierra-700">
+                            Respuesta:
+                          </span>
+                          <input
+                            type="text"
+                            value={reto.respuesta_correcta}
+                            onChange={(e) =>
+                              actualizarPreguntaEnVivo(
+                                rIdx,
+                                reto.instruccion,
+                                e.target.value
+                              )
+                            }
+                            className="w-20 rounded-lg bg-white border border-crema-300 px-2 py-1 text-xs font-bold text-center text-valle-700"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* =====================================================================
+            PESTAÑA 2: SUBIDA DE PDF CURRICULAR Y GRAFO CONECTADO POR NIVELES
+        ===================================================================== */}
+        {tabActiva === "curriculo" && (
+          <section className="rounded-3xl bg-white border border-crema-300 shadow-sm p-6 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-crema-200">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-terracotta-600">
+                  Currículo Nacional MINEDU en Base de Datos
+                </span>
+                <h2 className="text-xl sm:text-2xl font-bold text-tierra-900">
+                  Grafo de Niveles y Temas Extraídos desde PDF
+                </h2>
+                <p className="text-sm text-tierra-600">
+                  Sube el PDF curricular de tu escuela para que el bot extraiga
+                  y clasifique todos los temas por Nivel en Supabase.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-terracotta-500 hover:bg-terracotta-600 text-white font-bold text-sm cursor-pointer shadow-sm">
+                  <Upload className="w-4 h-4" />
+                  <span>
+                    {subiendoPdf
+                      ? "Analizando PDF..."
+                      : "Subir PDF de Temas MINEDU"}
+                  </span>
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={manejarSubidaPdf}
+                    disabled={subiendoPdf}
+                    className="hidden"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setMostrarModalNuevoTema((v) => !v)}
+                  className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-crema-100 hover:bg-crema-200 text-tierra-800 border border-crema-300 font-bold text-sm cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-terracotta-600" />
+                  Añadir Tema Manual
                 </button>
               </div>
-            </form>
-          )}
-
-          {/* Filtro del Grafo de Niveles */}
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-tierra-600 mr-1">
-                Explorar Grafo por Nivel:
-              </span>
-              <button
-                onClick={() => setNivelFiltroGrafo("TODOS")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                  nivelFiltroGrafo === "TODOS"
-                    ? "bg-tierra-800 text-white"
-                    : "bg-crema-100 text-tierra-700 hover:bg-crema-200"
-                }`}
-              >
-                Todos los Niveles ({niveles.length})
-              </button>
-              {niveles.map((niv) => (
-                <button
-                  key={niv.codigo}
-                  onClick={() => setNivelFiltroGrafo(niv.codigo)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
-                    nivelFiltroGrafo === niv.codigo
-                      ? "bg-terracotta-500 text-white"
-                      : "bg-crema-100 text-tierra-700 hover:bg-crema-200"
-                  }`}
-                >
-                  {niv.nombre}
-                </button>
-              ))}
             </div>
 
-            {documentos.length > 0 && (
-              <div className="text-xs text-tierra-600 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-terracotta-500" />
-                Último PDF procesado:{" "}
-                <strong className="text-tierra-800">
-                  {documentos[0].nombre_archivo}
-                </strong>
-              </div>
+            {mostrarModalNuevoTema && (
+              <form
+                onSubmit={manejarCrearTemaManual}
+                className="p-4 rounded-2xl bg-crema-50 border border-crema-300 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end"
+              >
+                <div>
+                  <label className="block text-xs font-bold text-tierra-700 mb-1">
+                    Nivel
+                  </label>
+                  <select
+                    value={nuevoTemaNivel}
+                    onChange={(e) => setNuevoTemaNivel(e.target.value)}
+                    className="w-full rounded-xl border border-crema-300 bg-white px-3 py-2 text-sm"
+                  >
+                    {niveles.map((n) => (
+                      <option key={n.codigo} value={n.codigo}>
+                        {n.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-tierra-700 mb-1">
+                    Área
+                  </label>
+                  <select
+                    value={nuevoTemaArea}
+                    onChange={(e) => setNuevoTemaArea(e.target.value)}
+                    className="w-full rounded-xl border border-crema-300 bg-white px-3 py-2 text-sm"
+                  >
+                    <option value="Matemática">Matemática</option>
+                    <option value="Ciencia y Tecnología">
+                      Ciencia y Tecnología
+                    </option>
+                    <option value="Comunicación">Comunicación</option>
+                    <option value="Personal Social">Personal Social</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-tierra-700 mb-1">
+                    Título del Tema
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={nuevoTemaTitulo}
+                    onChange={(e) => setNuevoTemaTitulo(e.target.value)}
+                    placeholder="Ej: Suma de fracciones en parcelas"
+                    className="w-full rounded-xl border border-crema-300 bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="py-2 px-4 rounded-xl bg-valle-600 hover:bg-valle-700 text-white font-bold text-sm cursor-pointer"
+                >
+                  Guardar en BD
+                </button>
+              </form>
             )}
-          </div>
 
-          {/* GRAFO VISUAL DE CONEXIONES: NIVEL -> ÁREA -> TEMAS EN BASE DE DATOS */}
-          <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-5">
-            {niveles
-              .filter(
-                (n) =>
-                  nivelFiltroGrafo === "TODOS" || n.codigo === nivelFiltroGrafo
-              )
-              .map((niv, idx) => {
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {niveles.map((niv, idx) => {
                 const temasDeEsteNivel = temas.filter(
                   (t) => t.nivel_codigo === niv.codigo
                 );
@@ -635,18 +966,18 @@ export default function MaestroDashboardPage() {
                 return (
                   <div
                     key={niv.codigo}
-                    className="rounded-2xl bg-crema-50 border-2 border-crema-200 p-4 flex flex-col justify-between min-w-0"
+                    className="rounded-2xl bg-crema-50 border-2 border-crema-200 p-4 flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2 pb-3 border-b border-crema-200">
-                        <div className="min-w-0">
+                        <div>
                           <span
                             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${estilo.badge}`}
                           >
                             <Layers className="w-3 h-3" />
                             {niv.nombre}
                           </span>
-                          <p className="text-xs text-tierra-600 mt-1.5 break-words">
+                          <p className="text-xs text-tierra-600 mt-1.5">
                             {niv.descripcion}
                           </p>
                         </div>
@@ -655,18 +986,18 @@ export default function MaestroDashboardPage() {
                         </span>
                       </div>
 
-                      <div className="mt-3 space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                      <div className="mt-3 space-y-2.5">
                         {temasDeEsteNivel.map((tema) => {
                           const esSeleccionadoHoy = temaActivoId === tema.id;
                           return (
                             <div
                               key={tema.id}
-                              onClick={() =>
+                              onClick={() => {
                                 setTemaSeleccionadoPorNivel((prev) => ({
                                   ...prev,
                                   [niv.codigo]: tema.id,
-                                }))
-                              }
+                                }));
+                              }}
                               className={`p-3 rounded-xl border transition-all cursor-pointer ${
                                 esSeleccionadoHoy
                                   ? "bg-white border-terracotta-500 shadow-sm ring-2 ring-terracotta-500/20"
@@ -680,14 +1011,14 @@ export default function MaestroDashboardPage() {
                                 {esSeleccionadoHoy && (
                                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-terracotta-600">
                                     <CheckCircle2 className="w-3.5 h-3.5" />
-                                    Elegido para hoy
+                                    Activo hoy
                                   </span>
                                 )}
                               </div>
-                              <p className="font-bold text-sm text-tierra-900 break-words">
+                              <p className="font-bold text-sm text-tierra-900">
                                 {tema.titulo_tema}
                               </p>
-                              <p className="text-xs text-tierra-600 mt-1 line-clamp-2 break-words">
+                              <p className="text-xs text-tierra-600 mt-1">
                                 {tema.desempeno_esperado}
                               </p>
                             </div>
@@ -696,208 +1027,36 @@ export default function MaestroDashboardPage() {
                       </div>
                     </div>
 
-                    <div className="mt-3 pt-2.5 border-t border-crema-200 flex items-center justify-between text-xs text-tierra-600">
-                      <span>Haz clic en un tema para asignarlo a la clase</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-terracotta-500" />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTabActiva("estudio")}
+                      className="mt-4 w-full py-2 rounded-xl bg-white hover:bg-crema-100 border border-crema-300 text-xs font-bold text-terracotta-600 cursor-pointer"
+                    >
+                      Usar tema seleccionado en la Clase →
+                    </button>
                   </div>
                 );
               })}
-          </div>
-        </section>
-
-        {/* PASO 2: GENERADOR DE LA CLASE DEL DÍA Y ANALÍTICA MULTINIVEL */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <section className="lg:col-span-5 rounded-3xl bg-white border border-crema-300 shadow-sm p-5 sm:p-6">
-            <div className="flex items-center gap-2.5 mb-2">
-              <div className="p-2 rounded-xl bg-terracotta-100 text-terracotta-600">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-terracotta-600">
-                  Paso 2 · Orquestador Multinivel
-                </span>
-                <h2 className="text-xl font-bold text-tierra-900">
-                  Preparar la Clase del Día
-                </h2>
-              </div>
             </div>
-            <p className="text-sm text-tierra-600 mb-5">
-              Un mismo relato vivencial para toda el aula, pero cada{" "}
-              <strong>Nivel</strong> resolverá el reto de su propio tema
-              curricular.
-            </p>
-
-            <form onSubmit={manejarArmarClaseDelDia} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-tierra-700 mb-1.5">
-                  Escenario de la Comunidad / Chacra / Feria
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={contextoRural}
-                  onChange={(e) => setContextoRural(e.target.value)}
-                  placeholder="Ej: La cosecha comunitaria de papas nativas"
-                  className="w-full rounded-xl bg-crema-50 border border-crema-300 px-3.5 py-2.5 text-sm text-tierra-900 focus:outline-none focus:border-terracotta-500"
-                />
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {[
-                    "Cosecha de papas nativas en la chacra",
-                    "Trueque y feria dominical en la plaza",
-                    "Crianza de alpacas y tejido de chullos",
-                  ].map((sug) => (
-                    <button
-                      type="button"
-                      key={sug}
-                      onClick={() => setContextoRural(sug)}
-                      className="text-xs px-2.5 py-1 rounded-lg bg-crema-100 hover:bg-crema-200 text-tierra-700 border border-crema-300 transition-colors cursor-pointer"
-                    >
-                      {sug}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3 pt-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-tierra-700">
-                  Temas Asignados hoy por cada Nivel
-                </label>
-
-                {niveles.map((niv) => {
-                  const temasNivel = temas.filter(
-                    (t) => t.nivel_codigo === niv.codigo
-                  );
-                  const activo = nivelesActivosHoy[niv.codigo] ?? true;
-
-                  return (
-                    <div
-                      key={niv.codigo}
-                      className={`p-3.5 rounded-2xl border transition-all ${
-                        activo
-                          ? "bg-crema-50 border-crema-300"
-                          : "bg-crema-100/50 border-crema-200 opacity-60"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <label className="inline-flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={activo}
-                            onChange={(e) =>
-                              setNivelesActivosHoy((prev) => ({
-                                ...prev,
-                                [niv.codigo]: e.target.checked,
-                              }))
-                            }
-                            className="rounded text-terracotta-500 focus:ring-terracotta-500"
-                          />
-                          <span className="font-bold text-sm text-tierra-900">
-                            {niv.nombre}
-                          </span>
-                        </label>
-                      </div>
-
-                      {activo && (
-                        <select
-                          value={temaSeleccionadoPorNivel[niv.codigo] || ""}
-                          onChange={(e) =>
-                            setTemaSeleccionadoPorNivel((prev) => ({
-                              ...prev,
-                              [niv.codigo]: e.target.value,
-                            }))
-                          }
-                          className="w-full rounded-xl bg-white border border-crema-300 px-3 py-2 text-xs sm:text-sm text-tierra-900 font-medium focus:outline-none focus:border-terracotta-500"
-                        >
-                          {temasNivel.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              [{t.area_curricular}] {t.titulo_tema}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <button
-                type="submit"
-                disabled={tejiendoMision}
-                className="w-full py-3.5 px-5 rounded-2xl bg-terracotta-500 hover:bg-terracotta-600 disabled:opacity-60 text-white font-bold text-base shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {tejiendoMision ? (
-                  <>
-                    <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    <span>{MENSAJES_CARGA_HUMANOS[indiceMensaje]}</span>
-                  </>
-                ) : (
-                  <>
-                    <BookOpen className="w-5 h-5" />
-                    <span>Armar Clase Multinivel del Día</span>
-                  </>
-                )}
-              </button>
-            </form>
-
-            {misionRecienCreada && (
-              <div className="mt-5 p-4 rounded-2xl bg-valle-50 border border-valle-500/30 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold uppercase tracking-wider text-valle-700 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Clase Lista para el Aula
-                    </span>
-                    <h3 className="font-bold text-base text-tierra-900 mt-0.5 break-words">
-                      {misionRecienCreada.titulo_mision}
-                    </h3>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {misionRecienCreada.fases[0]?.retos_grados.map((rg, idx) => (
-                    <span
-                      key={idx}
-                      className="text-xs px-2.5 py-1 rounded-lg bg-white border border-valle-500/30 text-tierra-800 font-medium"
-                    >
-                      <strong>
-                        {rg.nivel_nombre || rg.nivel_codigo || `${rg.grado}°`}:
-                      </strong>{" "}
-                      {rg.tema_curricular || "Reto práctico"}
-                    </span>
-                  ))}
-                </div>
-
-                <button
-                  onClick={() => lanzarMisionAlProyector(misionRecienCreada)}
-                  className="w-full py-2.5 px-4 rounded-xl bg-valle-600 hover:bg-valle-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
-                >
-                  <Play className="w-4 h-4 fill-current" />
-                  Proyectar esta Clase en el Aula
-                </button>
-              </div>
-            )}
           </section>
+        )}
 
-          <div className="lg:col-span-7 space-y-6">
+        {/* =====================================================================
+            PESTAÑA 3: PROGRESO Y ANALÍTICA MULTINIVEL DE LOS ESTUDIANTES
+        ===================================================================== */}
+        {tabActiva === "progreso" && (
+          <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Gráfico Radar por Niveles */}
-              <div className="rounded-3xl bg-white border border-crema-300 shadow-sm p-5 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider text-valle-700">
-                      Mapa de Dominio
-                    </span>
-                    <GraduationCap className="w-4 h-4 text-valle-600" />
-                  </div>
-                  <h3 className="text-base font-bold text-tierra-900">
-                    Equilibrio Curricular por Nivel
-                  </h3>
-                  <p className="text-xs text-tierra-600 mb-2">
-                    Comparativa de avance entre los niveles del aula
-                  </p>
+              <div className="rounded-3xl bg-white border border-crema-300 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-valle-700">
+                    Mapa de Dominio Multinivel
+                  </span>
+                  <GraduationCap className="w-4 h-4 text-valle-600" />
                 </div>
-
+                <h3 className="text-base font-bold text-tierra-900 mb-2">
+                  Equilibrio de Competencias por Nivel
+                </h3>
                 <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart
@@ -934,46 +1093,26 @@ export default function MaestroDashboardPage() {
                           />
                         );
                       })}
-                      <Legend
-                        wrapperStyle={{ fontSize: "11px", paddingTop: "6px" }}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#FDFBF7",
-                          borderColor: "#E5D7BE",
-                          borderRadius: "12px",
-                          color: "#241C15",
-                          fontSize: "12px",
-                        }}
-                      />
+                      <Legend wrapperStyle={{ fontSize: "11px" }} />
+                      <Tooltip />
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              {/* Gráfico de Líneas de Evolución Semanal por Nivel */}
-              <div className="rounded-3xl bg-white border border-crema-300 shadow-sm p-5 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider text-lago-600">
-                      Progreso Sostenido
-                    </span>
-                    <TrendingUp className="w-4 h-4 text-lago-600" />
-                  </div>
-                  <h3 className="text-base font-bold text-tierra-900">
-                    Evolución de Logro por Nivel (%)
-                  </h3>
-                  <p className="text-xs text-tierra-600 mb-2">
-                    Últimas 5 semanas de sesiones cooperativas
-                  </p>
+              <div className="rounded-3xl bg-white border border-crema-300 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-lago-600">
+                    Progreso Sostenido
+                  </span>
+                  <TrendingUp className="w-4 h-4 text-lago-600" />
                 </div>
-
+                <h3 className="text-base font-bold text-tierra-900 mb-2">
+                  Evolución Semanal por Nivel (%)
+                </h3>
                 <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={datosEvolucionSemanas}
-                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                    >
+                    <LineChart data={datosEvolucionSemanas}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F2E9D8" />
                       <XAxis
                         dataKey="semana"
@@ -983,15 +1122,7 @@ export default function MaestroDashboardPage() {
                         domain={[40, 100]}
                         tick={{ fill: "#57463A", fontSize: 11 }}
                       />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#FDFBF7",
-                          borderColor: "#E5D7BE",
-                          borderRadius: "12px",
-                          color: "#241C15",
-                          fontSize: "12px",
-                        }}
-                      />
+                      <Tooltip />
                       <Legend wrapperStyle={{ fontSize: "11px" }} />
                       <Line
                         type="monotone"
@@ -999,7 +1130,6 @@ export default function MaestroDashboardPage() {
                         dataKey="nivel_1"
                         stroke="#238564"
                         strokeWidth={2.5}
-                        dot={{ r: 4, fill: "#238564" }}
                       />
                       <Line
                         type="monotone"
@@ -1007,7 +1137,6 @@ export default function MaestroDashboardPage() {
                         dataKey="nivel_2"
                         stroke="#2B6CB0"
                         strokeWidth={2.5}
-                        dot={{ r: 4, fill: "#2B6CB0" }}
                       />
                       <Line
                         type="monotone"
@@ -1015,7 +1144,6 @@ export default function MaestroDashboardPage() {
                         dataKey="nivel_3"
                         stroke="#D4653B"
                         strokeWidth={2.5}
-                        dot={{ r: 4, fill: "#D4653B" }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -1023,26 +1151,12 @@ export default function MaestroDashboardPage() {
               </div>
             </div>
 
-            {/* Lista de Estudiantes Agrupados por Nivel */}
-            <div className="rounded-3xl bg-white border border-crema-300 shadow-sm p-5 sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-terracotta-600" />
-                  <h3 className="text-lg font-bold text-tierra-900">
-                    Estudiantes del Aula por Nivel ({alumnos.length})
-                  </h3>
-                </div>
-                <span className="text-xs text-tierra-600">
-                  Agrupación flexible por nivel de aprendizaje
-                </span>
-              </div>
-
+            <div className="rounded-3xl bg-white border border-crema-300 shadow-sm p-5">
+              <h3 className="text-lg font-bold text-tierra-900 mb-4">
+                Estudiantes del Aula por Nivel ({alumnos.length})
+              </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {alumnos.map((al, idx) => {
-                  const nivLabel =
-                    al.nivel_nombre ||
-                    al.nivel_codigo ||
-                    `Nivel ${al.grado_actual <= 2 ? 1 : al.grado_actual <= 4 ? 2 : 3}`;
                   const est = paletaPorOrden[idx % paletaPorOrden.length];
                   const vals = Object.values(al.competencias || {});
                   const promedio =
@@ -1051,43 +1165,31 @@ export default function MaestroDashboardPage() {
                           vals.reduce((a, b) => a + b, 0) / vals.length
                         )
                       : 85;
-
                   return (
                     <div
                       key={al.id}
-                      className="p-3.5 rounded-2xl bg-crema-50 border border-crema-200 flex flex-col justify-between gap-2 min-w-0"
+                      className="p-3.5 rounded-2xl bg-crema-50 border border-crema-200 space-y-2"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-bold text-sm text-tierra-900 truncate">
+                        <div>
+                          <p className="font-bold text-sm text-tierra-900">
                             {al.nombre_completo}
                           </p>
-                          <p className="text-xs text-tierra-600 truncate">
-                            {nivLabel}
+                          <p className="text-xs text-tierra-600">
+                            {al.nivel_nombre || al.nivel_codigo}
                           </p>
                         </div>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[11px] font-bold border shrink-0 ${est.badge}`}
+                          className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${est.badge}`}
                         >
-                          {al.nivel_codigo || `N${idx + 1}`}
+                          {promedio}%
                         </span>
                       </div>
-
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-tierra-600">
-                            Logro integral
-                          </span>
-                          <span className="font-bold text-tierra-900">
-                            {promedio}%
-                          </span>
-                        </div>
-                        <div className="w-full h-2 rounded-full bg-crema-200 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-valle-500"
-                            style={{ width: `${promedio}%` }}
-                          />
-                        </div>
+                      <div className="w-full h-2 rounded-full bg-crema-200 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-valle-500"
+                          style={{ width: `${promedio}%` }}
+                        />
                       </div>
                     </div>
                   );
@@ -1095,7 +1197,7 @@ export default function MaestroDashboardPage() {
               </div>
             </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );

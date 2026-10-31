@@ -47,7 +47,9 @@ export interface RetoGrado {
 
 export interface FaseMision {
   numero_fase: number;
+  titulo_fase?: string;
   narrativa_fase: string;
+  prompt_sdxl?: string;
   retos_grados: RetoGrado[];
 }
 
