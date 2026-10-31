@@ -9,7 +9,10 @@ import { MisionYuyAI } from "@/lib/types";
 
 export const maxDuration = 60;
 
-function buildDynamicSystemPrompt(selecciones: SeleccionNivelTema[]): string {
+function buildDynamicSystemPrompt(
+  selecciones: SeleccionNivelTema[],
+  contexto: string
+): string {
   const detalleNiveles = selecciones
     .map(
       (s, idx) =>
@@ -17,45 +20,52 @@ function buildDynamicSystemPrompt(selecciones: SeleccionNivelTema[]): string {
     )
     .join("\n");
 
-  return `Eres un sabio amauta y pedagogo especialista en educación rural multinivel del Perú (Currículo Nacional MINEDU).
-Tu misión es transformar los temas curriculares seleccionados para cada Nivel del aula en una aventura gamificada e interactiva de 3 etapas.
+  return `Eres un docente de primaria en una escuela del Perú.
+Debes crear una sesión de clase interactiva dividida en 3 etapas ("numero_fase": 1, 2 y 3) ambientada en: "${contexto}".
 
-NIVELES Y TEMAS QUE DEBES INCLUIR OBLIGATORIAMENTE EN CADA FASE (todos ellos, sin omitir ninguno):
+NIVELES DEL AULA Y EL TEMA QUE TRABAJA CADA UNO HOY:
 ${detalleNiveles}
 
-REGLAS ESTRICTAS:
-1. NUNCA uses lenguaje robótico ni menciones que eres una IA.
-2. Genera exactamente 3 fases progresivas ("numero_fase": 1, 2 y 3). Cada fase debe tener un "titulo_fase" corto y un "prompt_sdxl" en inglés describiendo una escena ilustrada distinta para esa etapa.
-3. En cada fase incluye "retos_grados" con EXACTAMENTE ${selecciones.length} objetos (uno para cada Nivel listado arriba).
-4. "respuesta_correcta" debe ser únicamente el número en texto (ejemplo: "27"), y "opciones" un arreglo de 4 números en texto que incluya la respuesta correcta.
-5. "feedback_error" es leído en voz alta por síntesis de voz (TTS) a los niños cuando se equivocan: redacta una pista pedagógica cálida, sin dar la respuesta directa.
-6. Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:
+ESTRUCTURA PEDAGÓGICA OBLIGATORIA PARA CADA ETAPA:
+1. Primero se cuenta un capítulo corto de la historia ("narrativa_fase", 2 a 3 oraciones naturales) acompañado de una descripción visual en inglés ("prompt_sdxl") para ilustrar esa escena.
+2. En cada reto por nivel ("retos_grados", exactamente ${selecciones.length} objetos, uno por cada nivel), incluye:
+   - "explicacion_previa": Una explicación breve y clara (1 a 2 oraciones) de la teoría o método para resolver el tema de ese nivel antes de ver la pregunta.
+   - "ejemplo_corto": Un ejemplo numérico concreto resuelto paso a paso (1 línea).
+   - "instruccion": La pregunta o problema conectado con la historia para que el niño resuelva.
+   - "respuesta_correcta": Únicamente el número final en texto (ej: "24").
+   - "opciones": Arreglo de 4 números en texto que incluya la respuesta correcta.
+   - "feedback_error": Explicación breve de cómo calcularlo si el niño se equivoca.
+
+Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:
 {
-  "titulo_mision": "Título corto y atractivo de la aventura",
+  "titulo_mision": "Título corto y natural de la clase",
   "prompt_sdxl_base": "Warm children storybook illustration of ...",
   "fases": [
     {
       "numero_fase": 1,
-      "titulo_fase": "Título de la etapa 1",
+      "titulo_fase": "Título del capítulo 1",
       "prompt_sdxl": "Warm children storybook illustration of ...",
-      "narrativa_fase": "Relato breve y emocionante (máximo 2 oraciones) de lo que ocurre en esta etapa.",
+      "narrativa_fase": "Relato del capítulo 1...",
+      "explicacion_general": "Resumen breve de lo que aprenderemos en este capítulo.",
       "retos_grados": [
         {
           "grado": 1,
           "nivel_codigo": "nivel_1",
-          "nivel_nombre": "Nivel 1 · Ciclo III (Semillas)",
-          "tema_curricular": "Título del tema",
+          "nivel_nombre": "Nivel 1 · Ciclo III",
+          "tema_curricular": "Tema del nivel",
           "area_curricular": "Matemática",
-          "instruccion": "Pregunta matemática vivencial clara",
+          "explicacion_previa": "Explicación clara y corta de cómo se resuelve este tema.",
+          "ejemplo_corto": "Ejemplo: ...",
+          "instruccion": "Pregunta práctica...",
           "tipo_mecanica": "input_numerico",
-          "opciones": ["22", "27", "30", "35"],
-          "respuesta_correcta": "27",
-          "feedback_error": "Pista amable hablada para guiar el cálculo"
+          "opciones": ["18", "24", "28", "32"],
+          "respuesta_correcta": "24",
+          "feedback_error": "Pista paso a paso..."
         }
       ]
     }
   ],
-  "narrativa_victoria": "Mensaje de celebración comunitaria",
+  "narrativa_victoria": "Mensaje final al terminar la clase",
   "prompt_sdxl_victoria": "Warm children storybook illustration of ..."
 }`;
 }
@@ -72,51 +82,49 @@ function normalizarMisionConTodosLosNiveles(
     selecciones
   );
 
-  // Acortar título si es excesivamente largo
-  const tituloLimpio =
-    misionCruda.titulo_mision && misionCruda.titulo_mision.length <= 68
-      ? misionCruda.titulo_mision
-      : respaldo.titulo_mision;
-
   const fasesNormalizadas = [0, 1, 2].map((fIdx) => {
     const faseCruda = misionCruda.fases?.[fIdx];
     const faseRespaldo = respaldo.fases[fIdx];
     if (!faseCruda) return faseRespaldo;
 
-    // Asegurar que cada nivel seleccionado tenga su reto en esta fase
-    const retosCompletos = faseRespaldo.retos_grados.map(
-      (retoResp, nIdx) => {
-        const retoEncontrado =
-          faseCruda.retos_grados?.find(
-            (r) => r.nivel_codigo === retoResp.nivel_codigo
-          ) || faseCruda.retos_grados?.[nIdx];
+    const retosCompletos = faseRespaldo.retos_grados.map((retoResp, nIdx) => {
+      const retoEncontrado =
+        faseCruda.retos_grados?.find(
+          (r) => r.nivel_codigo === retoResp.nivel_codigo
+        ) || faseCruda.retos_grados?.[nIdx];
 
-        if (!retoEncontrado || !retoEncontrado.instruccion) {
-          return retoResp;
-        }
-
-        const respStr = String(
-          retoEncontrado.respuesta_correcta || retoResp.respuesta_correcta
-        ).trim();
-        const opcionesFinales =
-          Array.isArray(retoEncontrado.opciones) &&
-          retoEncontrado.opciones.length >= 3 &&
-          retoEncontrado.opciones.includes(respStr)
-            ? retoEncontrado.opciones.map(String)
-            : generarOpcionesParaRespuesta(respStr);
-
-        return {
-          ...retoResp,
-          ...retoEncontrado,
-          nivel_codigo: retoResp.nivel_codigo,
-          nivel_nombre: retoResp.nivel_nombre,
-          tema_curricular:
-            retoEncontrado.tema_curricular || retoResp.tema_curricular,
-          respuesta_correcta: respStr,
-          opciones: opcionesFinales,
-        };
+      if (!retoEncontrado || !retoEncontrado.instruccion) {
+        return retoResp;
       }
-    );
+
+      const respStr = String(
+        retoEncontrado.respuesta_correcta || retoResp.respuesta_correcta
+      )
+        .replace(/[^0-9.-]/g, "")
+        .trim() || retoResp.respuesta_correcta;
+
+      const opcionesFinales =
+        Array.isArray(retoEncontrado.opciones) &&
+        retoEncontrado.opciones.length >= 3 &&
+        retoEncontrado.opciones.includes(respStr)
+          ? retoEncontrado.opciones.map(String)
+          : generarOpcionesParaRespuesta(respStr);
+
+      return {
+        ...retoResp,
+        ...retoEncontrado,
+        nivel_codigo: retoResp.nivel_codigo,
+        nivel_nombre: retoResp.nivel_nombre,
+        tema_curricular:
+          retoEncontrado.tema_curricular || retoResp.tema_curricular,
+        explicacion_previa:
+          retoEncontrado.explicacion_previa || retoResp.explicacion_previa,
+        ejemplo_corto:
+          retoEncontrado.ejemplo_corto || retoResp.ejemplo_corto,
+        respuesta_correcta: respStr,
+        opciones: opcionesFinales,
+      };
+    });
 
     return {
       numero_fase: fIdx + 1,
@@ -127,6 +135,8 @@ function normalizarMisionConTodosLosNiveles(
         misionCruda.prompt_sdxl_base,
       narrativa_fase:
         faseCruda.narrativa_fase || faseRespaldo.narrativa_fase,
+      explicacion_general:
+        faseCruda.explicacion_general || faseRespaldo.explicacion_general,
       retos_grados: retosCompletos,
     };
   });
@@ -134,71 +144,90 @@ function normalizarMisionConTodosLosNiveles(
   return {
     ...respaldo,
     ...misionCruda,
-    titulo_mision: tituloLimpio,
+    titulo_mision: misionCruda.titulo_mision || respaldo.titulo_mision,
     fases: fasesNormalizadas,
   };
 }
 
-async function callGeminiAPI(
-  promptUsuario: string,
+async function generateMissionWithLiveLLM(
   selecciones: SeleccionNivelTema[],
+  contexto: string,
   apiKey: string
 ): Promise<MisionYuyAI | null> {
-  if (!apiKey) return null;
+  const systemPrompt = buildDynamicSystemPrompt(selecciones, contexto);
 
-  const payload = {
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            text: `${buildDynamicSystemPrompt(selecciones)}\n\nESCENARIO DEL DÍA: ${promptUsuario}`,
-          },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.7,
-      responseMimeType: "application/json",
-    },
-  };
+  // 1. Intentar con Gemini API si está habilitada
+  if (apiKey) {
+    const endpoints = [
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    ];
 
-  const endpoints = apiKey.startsWith("AQ.")
-    ? [
-        `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      ]
-    : [
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      ];
+    for (const url of endpoints) {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              responseMimeType: "application/json",
+            },
+          }),
+        });
 
-  for (const url of endpoints) {
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) continue;
-
-      const data = await response.json();
-      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawText) continue;
-
-      const cleaned = rawText.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(cleaned) as MisionYuyAI;
-      if (
-        parsed?.titulo_mision &&
-        Array.isArray(parsed?.fases) &&
-        parsed.fases.length > 0
-      ) {
-        return parsed;
+        if (response.ok) {
+          const data = await response.json();
+          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            const parsed = JSON.parse(
+              rawText.replace(/```json|```/g, "").trim()
+            ) as MisionYuyAI;
+            if (parsed?.titulo_mision && Array.isArray(parsed?.fases)) {
+              return parsed;
+            }
+          }
+        }
+      } catch {
+        // Pasa al motor LLM en vivo
       }
-    } catch {
-      // Continúa al respaldo pedagógico multinivel
     }
+  }
+
+  // 2. Motor LLM en vivo (OpenAI / Pollinations JSON) para generar historia + teoría + preguntas reales al instante
+  try {
+    const llmRes = await fetch("https://text.pollinations.ai/openai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "openai",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Eres un docente de primaria experto en crear clases narrativas con explicación teórica breve y preguntas prácticas por nivel. Responde solo en JSON válido.",
+          },
+          { role: "user", content: systemPrompt },
+        ],
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    if (llmRes.ok) {
+      const llmData = await llmRes.json();
+      const rawContent = llmData?.choices?.[0]?.message?.content;
+      if (rawContent) {
+        const parsed = JSON.parse(
+          rawContent.replace(/```json|```/g, "").trim()
+        ) as MisionYuyAI;
+        if (parsed?.titulo_mision && Array.isArray(parsed?.fases)) {
+          return parsed;
+        }
+      }
+    }
+  } catch {
+    // Fallback local
   }
 
   return null;
@@ -207,39 +236,37 @@ async function callGeminiAPI(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const tema = (
-      body?.tema || "Saberes de la comunidad y resolución de problemas"
-    ).trim();
-    const contexto = (body?.contexto || "Nuestra Comunidad Andina").trim();
+    const tema = (body?.tema || "Resolución de problemas").trim();
+    const contexto = (body?.contexto || "La comunidad escolar").trim();
     const selecciones: SeleccionNivelTema[] =
       Array.isArray(body?.selecciones) && body.selecciones.length > 0
         ? body.selecciones
         : [
             {
               nivel_codigo: "nivel_1",
-              nivel_nombre: "Nivel 1 · Ciclo III (Semillas)",
-              tema_titulo: "Agrupación por decenas y unidades en la cosecha",
+              nivel_nombre: "Nivel 1 · Ciclo III",
+              tema_titulo: "Sumas agrupando decenas y unidades",
               area_curricular: "Matemática",
             },
             {
               nivel_codigo: "nivel_2",
-              nivel_nombre: "Nivel 2 · Ciclo IV (Tejedores)",
-              tema_titulo: "Multiplicación por filas y reparto equitativo",
+              nivel_nombre: "Nivel 2 · Ciclo IV",
+              tema_titulo: "Multiplicación por filas y reparto en partes iguales",
               area_curricular: "Matemática",
             },
             {
               nivel_codigo: "nivel_3",
-              nivel_nombre: "Nivel 3 · Ciclo V (Amautas)",
-              tema_titulo: "Fracciones equivalentes y reparto comunal",
+              nivel_nombre: "Nivel 3 · Ciclo V",
+              tema_titulo: "Fracciones de un total y reparto proporcional",
               area_curricular: "Matemática",
             },
           ];
 
     const apiKey = process.env.GEMINI_API_KEY || "";
 
-    const misionCruda = await callGeminiAPI(
-      `Escenario cultural: ${contexto}. Propósito: ${tema}.`,
+    const misionCruda = await generateMissionWithLiveLLM(
       selecciones,
+      contexto,
       apiKey
     );
 
@@ -272,8 +299,8 @@ export async function POST(req: NextRequest) {
     });
   } catch {
     const fallback = construirMisionMultinivelContextual(
-      "Equilibrio de cargas en el puente comunal",
-      "Comunidad de Huinchiri"
+      "Matemática en la comunidad",
+      "Nuestra escuela"
     );
     return NextResponse.json({ mision: fallback, guardado_en_supabase: false });
   }

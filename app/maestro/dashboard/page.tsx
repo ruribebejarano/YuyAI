@@ -25,16 +25,14 @@ import {
   TrendingUp,
   Play,
   CheckCircle2,
-  Database,
   Upload,
   FileText,
-  Network,
   Plus,
   Layers,
   GraduationCap,
   Wand2,
-  Eye,
   Edit3,
+  Lightbulb,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
@@ -54,39 +52,34 @@ import {
 
 const ESCENARIOS_VISUALES = [
   {
+    id: "puente",
+    emoji: "🌉",
+    titulo: "El Puente de Q'eswachaka",
+    contexto: "El tejido cooperativo del puente colgante sobre el río",
+  },
+  {
     id: "chacra",
     emoji: "🥔",
     titulo: "Cosecha en la Chacra",
-    contexto: "La cosecha comunitaria de papas nativas y maíz en la chacra escolar",
-    estiloPrompt: "children harvesting potatoes and corn in green Andean terraces",
-  },
-  {
-    id: "puente",
-    emoji: "🌉",
-    titulo: "Puente Inca Q'eswachaka",
-    contexto: "El tejido cooperativo del puente colgante de ichu sobre el río",
-    estiloPrompt: "ancient Incan rope bridge over a turquoise mountain river canyon",
+    contexto: "La cosecha comunitaria de papas y maíz en la chacra escolar",
   },
   {
     id: "feria",
     emoji: "🦙",
-    titulo: "Feria y Trueque con Llamas",
-    contexto: "La feria dominical de trueque y caravana de alpacas en la plaza",
-    estiloPrompt: "colorful Andean market square with friendly llamas and woven baskets",
+    titulo: "La Feria de la Plaza",
+    contexto: "La feria dominical y el transporte de canastas con llamas",
   },
   {
     id: "agua",
     emoji: "💧",
-    titulo: "Canales de Agua de los Apus",
-    contexto: "El reparto del agua cristalina por los canales de piedra y andenes",
-    estiloPrompt: "crystal water flowing through Incan stone channels in sunny mountains",
+    titulo: "Los Canales de Riego",
+    contexto: "El recorrido del agua por los canales hacia las parcelas",
   },
 ];
 
 export default function MaestroDashboardPage() {
   const router = useRouter();
 
-  // Pestaña activa para que no haya scroll infinito ni confusión
   const [tabActiva, setTabActiva] = useState<
     "estudio" | "curriculo" | "progreso"
   >("estudio");
@@ -95,7 +88,6 @@ export default function MaestroDashboardPage() {
   const [temas, setTemas] = useState<TemaCurricularRow[]>(TEMAS_INICIALES);
   const [documentos, setDocumentos] = useState<DocumentoCurricularRow[]>([]);
   const [alumnos, setAlumnos] = useState<AlumnoRow[]>(ALUMNOS_DEMO);
-  const [cargandoDB, setCargandoDB] = useState(true);
 
   const [temaSeleccionadoPorNivel, setTemaSeleccionadoPorNivel] = useState<
     Record<string, string>
@@ -108,7 +100,6 @@ export default function MaestroDashboardPage() {
     ESCENARIOS_VISUALES[0].contexto
   );
 
-  // Estado de la Misión en el Estudio Interactivo (Derecha)
   const [misionEstudio, setMisionEstudio] =
     useState<MisionYuyAI>(MISION_INICIAL_DEMO);
   const [fasePreviewIdx, setFasePreviewIdx] = useState<number>(0);
@@ -119,7 +110,6 @@ export default function MaestroDashboardPage() {
   const [tejiendoMision, setTejiendoMision] = useState(false);
   const [indiceMensaje, setIndiceMensaje] = useState(0);
 
-  // Estado para subida de PDF Curricular
   const [subiendoPdf, setSubiendoPdf] = useState(false);
   const [mensajePdf, setMensajePdf] = useState<string | null>(null);
   const [mostrarModalNuevoTema, setMostrarModalNuevoTema] = useState(false);
@@ -128,30 +118,23 @@ export default function MaestroDashboardPage() {
   const [nuevoTemaTitulo, setNuevoTemaTitulo] = useState("");
 
   const cargarDatosSupabase = async () => {
-    setCargandoDB(true);
     try {
-      const [resNiveles, resTemas, resDocs, resAlumnos, resMisiones] =
-        await Promise.all([
-          supabase
-            .from("niveles_aula")
-            .select("*")
-            .order("orden", { ascending: true }),
-          supabase
-            .from("temas_curriculares")
-            .select("*")
-            .order("orden", { ascending: true }),
-          supabase
-            .from("documentos_curriculares")
-            .select("*")
-            .order("fecha_subida", { ascending: false })
-            .limit(10),
-          supabase.from("alumnos").select("*"),
-          supabase
-            .from("misiones_plantillas")
-            .select("*")
-            .order("fecha_creacion", { ascending: false })
-            .limit(5),
-        ]);
+      const [resNiveles, resTemas, resDocs, resAlumnos] = await Promise.all([
+        supabase
+          .from("niveles_aula")
+          .select("*")
+          .order("orden", { ascending: true }),
+        supabase
+          .from("temas_curriculares")
+          .select("*")
+          .order("id", { ascending: false }),
+        supabase
+          .from("documentos_curriculares")
+          .select("*")
+          .order("fecha_subida", { ascending: false })
+          .limit(10),
+        supabase.from("alumnos").select("*"),
+      ]);
 
       const nivelesDB =
         resNiveles.data && resNiveles.data.length > 0
@@ -171,16 +154,6 @@ export default function MaestroDashboardPage() {
       if (resAlumnos.data && resAlumnos.data.length > 0) {
         setAlumnos(resAlumnos.data as AlumnoRow[]);
       }
-      if (resMisiones.data && resMisiones.data.length > 0) {
-        const primera = resMisiones.data[0]?.fases_json as MisionYuyAI;
-        if (
-          primera &&
-          Array.isArray(primera.fases) &&
-          primera.fases[0]?.retos_grados?.length >= 2
-        ) {
-          setMisionEstudio(primera);
-        }
-      }
 
       const mapaSeleccion: Record<string, string> = {};
       nivelesDB.forEach((niv) => {
@@ -191,11 +164,9 @@ export default function MaestroDashboardPage() {
           mapaSeleccion[niv.codigo] = temasDelNivel[0].id;
         }
       });
-      setTemaSeleccionadoPorNivel((prev) => ({ ...mapaSeleccion, ...prev }));
+      setTemaSeleccionadoPorNivel((prev) => ({ ...prev, ...mapaSeleccion }));
     } catch {
       // Mantiene datos iniciales
-    } finally {
-      setCargandoDB(false);
     }
   };
 
@@ -203,8 +174,7 @@ export default function MaestroDashboardPage() {
     cargarDatosSupabase();
   }, []);
 
-  // Pintar vista previa en RunPod cuando cambia la misión en el estudio
-  const generarImagenPreviewRunPod = async (promptUsar?: string) => {
+  const generarImagenPreview = async (promptUsar?: string) => {
     setPintandoPreview(true);
     const fase =
       misionEstudio.fases[fasePreviewIdx] || misionEstudio.fases[0];
@@ -232,7 +202,7 @@ export default function MaestroDashboardPage() {
   };
 
   useEffect(() => {
-    generarImagenPreviewRunPod();
+    generarImagenPreview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [misionEstudio.titulo_mision, fasePreviewIdx]);
 
@@ -249,9 +219,7 @@ export default function MaestroDashboardPage() {
     if (!file) return;
 
     setSubiendoPdf(true);
-    setMensajePdf(
-      `Extrayendo temas por nivel de "${file.name}" y guardando en Supabase...`
-    );
+    setMensajePdf(`Leyendo el archivo "${file.name}" e identificando temas...`);
 
     try {
       const formData = new FormData();
@@ -263,14 +231,33 @@ export default function MaestroDashboardPage() {
       });
 
       const data = await response.json();
-      if (data.temas && Array.isArray(data.temas)) {
-        await cargarDatosSupabase();
+      if (data.temas && Array.isArray(data.temas) && data.temas.length > 0) {
+        const nuevosTemas = data.temas as TemaCurricularRow[];
+        setTemas((prev) => [...nuevosTemas, ...prev]);
+
+        // Seleccionar automáticamente los nuevos temas extraídos del PDF para cada nivel
+        const nuevaSeleccion: Record<string, string> = {};
+        niveles.forEach((niv) => {
+          const encontrado = nuevosTemas.find(
+            (t) => t.nivel_codigo === niv.codigo
+          );
+          if (encontrado && encontrado.id) {
+            nuevaSeleccion[niv.codigo] = encontrado.id;
+          }
+        });
+        setTemaSeleccionadoPorNivel((prev) => ({
+          ...prev,
+          ...nuevaSeleccion,
+        }));
+
         setMensajePdf(
-          `¡Listo! Se extrajeron ${data.temas.length} temas de "${file.name}" y ya están disponibles por Nivel.`
+          `Se identificaron ${nuevosTemas.length} temas en "${file.name}" y ya quedaron seleccionados por nivel.`
         );
+      } else {
+        setMensajePdf("No se encontraron temas nuevos en el archivo.");
       }
     } catch {
-      setMensajePdf("Se actualizaron los temas del mapa curricular.");
+      setMensajePdf("Ocurrió un problema al leer el archivo PDF.");
     } finally {
       setSubiendoPdf(false);
       e.target.value = "";
@@ -291,7 +278,7 @@ export default function MaestroDashboardPage() {
       area_curricular: nuevoTemaArea,
       titulo_tema: nuevoTemaTitulo.trim(),
       competencia_minedu: "Resuelve problemas de cantidad",
-      desempeno_esperado: `Aplicación práctica de ${nuevoTemaTitulo.trim()} en la comunidad.`,
+      desempeno_esperado: `Aprendizaje de ${nuevoTemaTitulo.trim()} en el aula.`,
       estado: "en_curso",
       orden: temas.length + 1,
     };
@@ -340,7 +327,7 @@ export default function MaestroDashboardPage() {
         nivel_codigo: niv.codigo,
         nivel_nombre: niv.nombre,
         tema_titulo:
-          temaObj?.titulo_tema || "Resolución de problemas comunitarios",
+          temaObj?.titulo_tema || "Resolución de problemas matemáticos",
         area_curricular: temaObj?.area_curricular || "Matemática",
         competencia_minedu:
           temaObj?.competencia_minedu || "Resuelve problemas de cantidad",
@@ -414,8 +401,8 @@ export default function MaestroDashboardPage() {
       { key: "logica_matematica", label: "Matemática" },
       { key: "comprension_lectora", label: "Comprensión" },
       { key: "resolucion_problemas", label: "Problemas" },
-      { key: "trabajo_colaborativo", label: "Ayni Colectivo" },
-      { key: "expresion_oral", label: "Oralidad" },
+      { key: "trabajo_colaborativo", label: "Trabajo Grupal" },
+      { key: "expresion_oral", label: "Expresión Oral" },
       { key: "pensamiento_creativo", label: "Creatividad" },
     ] as const;
 
@@ -469,7 +456,7 @@ export default function MaestroDashboardPage() {
 
   return (
     <div className="min-h-screen bg-crema-100 text-tierra-900 pb-10">
-      {/* CABECERA CON NAVEGACIÓN POR PESTAÑAS CLARAS */}
+      {/* CABECERA ESCOLAR LIMPIA */}
       <header className="sticky top-0 z-30 border-b border-crema-300 bg-crema-50/95 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -480,22 +467,15 @@ export default function MaestroDashboardPage() {
               Y
             </Link>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold text-tierra-900">
-                  Estudio Docente YuyAI
-                </h1>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-valle-100 text-valle-700 border border-valle-500/30">
-                  <Database className="w-3 h-3" />
-                  {cargandoDB ? "Sincronizando..." : "Conectado"}
-                </span>
-              </div>
+              <h1 className="text-base sm:text-lg font-bold text-tierra-900">
+                Sala del Docente · Planificador de Clases
+              </h1>
               <p className="text-xs text-tierra-600 hidden sm:block">
-                Planificación Multinivel MINEDU + Escenarios Ilustrados con RunPod
+                Primaria Multinivel (Ciclos III, IV y V)
               </p>
             </div>
           </div>
 
-          {/* 3 PESTAÑAS CLARAS PARA QUE TODO SEA INTUITIVO Y SIN SCROLL LARGO */}
           <div className="flex items-center gap-1.5 bg-crema-200/70 p-1 rounded-2xl border border-crema-300">
             <button
               type="button"
@@ -507,7 +487,7 @@ export default function MaestroDashboardPage() {
               }`}
             >
               <Sparkles className="w-4 h-4" />
-              <span>1. Crear Clase del Día</span>
+              <span>1. Preparar Clase</span>
             </button>
 
             <button
@@ -519,8 +499,8 @@ export default function MaestroDashboardPage() {
                   : "text-tierra-700 hover:text-tierra-900"
               }`}
             >
-              <Network className="w-4 h-4" />
-              <span>2. PDF y Mapa Curricular</span>
+              <BookOpen className="w-4 h-4" />
+              <span>2. Temas y PDF ({temas.length})</span>
             </button>
 
             <button
@@ -533,7 +513,7 @@ export default function MaestroDashboardPage() {
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>3. Avance del Aula</span>
+              <span>3. Estudiantes</span>
             </button>
           </div>
 
@@ -542,31 +522,31 @@ export default function MaestroDashboardPage() {
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-valle-600 hover:bg-valle-700 text-white font-bold text-xs sm:text-sm shadow-sm transition-all cursor-pointer"
           >
             <Play className="w-4 h-4 fill-current" />
-            <span>Ir a la Pizarra del Aula</span>
+            <span>Iniciar Clase en Pizarra</span>
           </button>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-5">
         {/* =====================================================================
-            PESTAÑA 1: ESTUDIO INTERACTIVO PARA CREAR Y PREVISUALIZAR LA CLASE
+            PESTAÑA 1: PREPARAR CLASE DEL DÍA
         ===================================================================== */}
         {tabActiva === "estudio" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* COLUMNA IZQUIERDA (5 cols): CONFIGURADOR EN 2 PASOS SIMPLES */}
+            {/* COLUMNA IZQUIERDA (5 cols): SUBIR PDF Y ELEGIR TEMAS */}
             <section className="lg:col-span-5 rounded-3xl bg-white border border-crema-300 shadow-sm p-5 space-y-5">
               <div className="flex items-center justify-between border-b border-crema-200 pb-3">
                 <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-terracotta-600">
-                    Configurador Rápido
-                  </span>
                   <h2 className="text-lg font-bold text-tierra-900">
-                    Diseña la Aventura Multinivel
+                    Configurar la Sesión de Hoy
                   </h2>
+                  <p className="text-xs text-tierra-600">
+                    Sube tu PDF de unidades o elige los temas por nivel
+                  </p>
                 </div>
-                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-crema-100 hover:bg-crema-200 text-tierra-800 border border-crema-300 text-xs font-bold cursor-pointer">
-                  <Upload className="w-3.5 h-3.5 text-terracotta-600" />
-                  <span>{subiendoPdf ? "Leyendo..." : "Subir PDF"}</span>
+                <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-terracotta-50 hover:bg-terracotta-100 text-terracotta-700 border border-terracotta-500/30 text-xs font-bold cursor-pointer">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{subiendoPdf ? "Leyendo PDF..." : "Subir PDF"}</span>
                   <input
                     type="file"
                     accept=".pdf,application/pdf"
@@ -582,18 +562,17 @@ export default function MaestroDashboardPage() {
                   <span>{mensajePdf}</span>
                   <button
                     onClick={() => setMensajePdf(null)}
-                    className="font-bold underline"
+                    className="font-bold underline shrink-0"
                   >
-                    OK
+                    Cerrar
                   </button>
                 </div>
               )}
 
               <form onSubmit={manejarArmarClaseDelDia} className="space-y-4">
-                {/* Paso A: Elegir Escenario Visual con Tarjetas Ilustradas */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-tierra-700 mb-2">
-                    Paso A · Elige el Escenario que pintará RunPod:
+                    1. Tema del Cuento para el Salón:
                   </label>
                   <div className="grid grid-cols-2 gap-2 mb-2">
                     {ESCENARIOS_VISUALES.map((esc) => {
@@ -622,23 +601,22 @@ export default function MaestroDashboardPage() {
                     required
                     value={contextoRural}
                     onChange={(e) => setContextoRural(e.target.value)}
-                    placeholder="O escribe tu propio escenario comunitario..."
+                    placeholder="O escribe sobre qué tratará la historia de hoy..."
                     className="w-full rounded-xl bg-crema-50 border border-crema-300 px-3 py-2 text-xs sm:text-sm text-tierra-900 focus:outline-none focus:border-terracotta-500"
                   />
                 </div>
 
-                {/* Paso B: Elegir qué tema curricular resuelve cada Nivel */}
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold uppercase tracking-wider text-tierra-700">
-                      Paso B · Tema Curricular para cada Nivel:
+                      2. Tema de Clase para cada Nivel:
                     </label>
                     <button
                       type="button"
                       onClick={() => setTabActiva("curriculo")}
                       className="text-xs font-bold text-terracotta-600 hover:underline cursor-pointer"
                     >
-                      Ver Grafo Completo →
+                      Administrar Temas →
                     </button>
                   </div>
 
@@ -660,7 +638,7 @@ export default function MaestroDashboardPage() {
                             {niv.nombre}
                           </span>
                           <span className="text-[11px] text-tierra-600">
-                            {temasNivel.length} temas en BD
+                            {niv.descripcion}
                           </span>
                         </div>
 
@@ -698,17 +676,16 @@ export default function MaestroDashboardPage() {
                   ) : (
                     <>
                       <Wand2 className="w-5 h-5" />
-                      <span>Generar Clase + Ilustrar Escenario</span>
+                      <span>Crear Historia, Explicación y Preguntas</span>
                     </>
                   )}
                 </button>
               </form>
             </section>
 
-            {/* COLUMNA DERECHA (7 cols): VISTA PREVIA EN VIVO Y EDITOR INTERACTIVO DE LA CLASE */}
+            {/* COLUMNA DERECHA (7 cols): VISTA PREVIA DEL CUENTO, LA EXPLICACIÓN Y LAS PREGUNTAS */}
             <section className="lg:col-span-7 rounded-3xl bg-white border-2 border-crema-300 shadow-sm overflow-hidden">
-              {/* Banner Superior con la Ilustración Generada por RunPod */}
-              <div className="relative h-52 sm:h-60 bg-tierra-900 overflow-hidden">
+              <div className="relative h-48 sm:h-56 bg-tierra-900 overflow-hidden">
                 <img
                   src={imagenPreviewUrl}
                   alt={misionEstudio.titulo_mision}
@@ -717,31 +694,31 @@ export default function MaestroDashboardPage() {
                     pintandoPreview ? "scale-105 blur-[2px] opacity-75" : ""
                   }`}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-tierra-900/90 via-tierra-900/30 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-tierra-900/90 via-tierra-900/25 to-transparent" />
 
                 <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-crema-50/95 text-tierra-900 shadow-sm">
-                    <Eye className="w-3.5 h-3.5 text-terracotta-500" />
+                    <Sparkles className="w-3.5 h-3.5 text-terracotta-500" />
                     {pintandoPreview
-                      ? "RunPod GPU está pintando la escena..."
-                      : "Vista Previa del Escenario (RunPod SDXL Turbo)"}
+                      ? "Ilustrando escena..."
+                      : "Ilustración del Capítulo"}
                   </span>
 
                   <button
                     type="button"
                     disabled={pintandoPreview}
-                    onClick={() => generarImagenPreviewRunPod()}
+                    onClick={() => generarImagenPreview()}
                     className="px-3 py-1 rounded-full text-xs font-bold bg-terracotta-500 hover:bg-terracotta-600 text-white shadow-sm flex items-center gap-1 cursor-pointer disabled:opacity-50"
                   >
                     <Wand2 className="w-3.5 h-3.5" />
-                    <span>Pintar Otra Variación</span>
+                    <span>Nueva Ilustración</span>
                   </button>
                 </div>
 
                 <div className="absolute bottom-3 left-4 right-4 flex flex-wrap items-end justify-between gap-3">
                   <div>
                     <span className="text-xs font-bold uppercase tracking-wider text-crema-200">
-                      Clase Lista para Proyectar
+                      Vista Previa de la Sesión
                     </span>
                     <h3 className="text-xl sm:text-2xl font-bold text-white">
                       {misionEstudio.titulo_mision}
@@ -754,12 +731,11 @@ export default function MaestroDashboardPage() {
                     className="px-5 py-2.5 rounded-xl bg-valle-500 hover:bg-valle-600 text-white font-bold text-sm shadow-md flex items-center gap-2 cursor-pointer"
                   >
                     <Play className="w-4 h-4 fill-current" />
-                    <span>Proyectar en el Aula Ahora</span>
+                    <span>Abrir en la Pizarra del Salón</span>
                   </button>
                 </div>
               </div>
 
-              {/* Selector de las 3 Etapas de la Clase */}
               <div className="p-5 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-crema-200 pb-3">
                   <div className="flex items-center gap-2">
@@ -774,23 +750,26 @@ export default function MaestroDashboardPage() {
                             : "bg-crema-100 text-tierra-700 hover:bg-crema-200"
                         }`}
                       >
-                        Etapa {f.numero_fase}:{" "}
+                        Capítulo {f.numero_fase}:{" "}
                         {f.titulo_fase || `Parte ${f.numero_fase}`}
                       </button>
                     ))}
                   </div>
                   <span className="text-xs text-tierra-600 flex items-center gap-1">
                     <Edit3 className="w-3.5 h-3.5 text-terracotta-500" />
-                    Puedes editar cualquier pregunta antes de proyectar
+                    Editable antes de proyectar
                   </span>
                 </div>
 
-                {/* Relato de la etapa seleccionada */}
-                <div className="p-3.5 rounded-2xl bg-crema-50 border border-crema-200 text-sm text-tierra-800 italic">
-                  “{fasePreviewActual?.narrativa_fase}”
+                <div className="p-3.5 rounded-2xl bg-crema-50 border border-crema-200 space-y-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-terracotta-600">
+                    Relato del Capítulo {fasePreviewActual?.numero_fase}:
+                  </span>
+                  <p className="text-sm text-tierra-800">
+                    “{fasePreviewActual?.narrativa_fase}”
+                  </p>
                 </div>
 
-                {/* Tarjetas de los 3 Niveles en esta Etapa (Editables en vivo) */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {fasePreviewActual?.retos_grados.map((reto, rIdx) => {
                     const est = paletaPorOrden[rIdx % paletaPorOrden.length];
@@ -799,15 +778,35 @@ export default function MaestroDashboardPage() {
                         key={rIdx}
                         className="p-3.5 rounded-2xl bg-crema-50 border border-crema-300 flex flex-col justify-between gap-2.5"
                       >
-                        <div>
+                        <div className="space-y-1.5">
                           <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold border mb-1.5 ${est.badge}`}
+                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${est.badge}`}
                           >
                             {reto.nivel_nombre || `Nivel ${rIdx + 1}`}
                           </span>
-                          <p className="text-[11px] font-bold text-tierra-600 mb-1">
+                          <p className="text-[11px] font-bold text-tierra-700">
                             {reto.tema_curricular}
                           </p>
+
+                          {/* Explicación teórica corta generada para este nivel */}
+                          {reto.explicacion_previa && (
+                            <div className="p-2 rounded-xl bg-white border border-crema-200 text-[11px] text-tierra-700 space-y-1">
+                              <span className="font-bold text-valle-700 flex items-center gap-1">
+                                <Lightbulb className="w-3 h-3" />
+                                Explicación previa:
+                              </span>
+                              <p>{reto.explicacion_previa}</p>
+                              {reto.ejemplo_corto && (
+                                <p className="font-bold text-tierra-900">
+                                  {reto.ejemplo_corto}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          <label className="block text-[11px] font-bold text-tierra-700 pt-1">
+                            Pregunta para el nivel:
+                          </label>
                           <textarea
                             rows={3}
                             value={reto.instruccion}
@@ -849,21 +848,18 @@ export default function MaestroDashboardPage() {
         )}
 
         {/* =====================================================================
-            PESTAÑA 2: SUBIDA DE PDF CURRICULAR Y GRAFO CONECTADO POR NIVELES
+            PESTAÑA 2: TEMAS POR NIVEL Y CARGA DE PDF
         ===================================================================== */}
         {tabActiva === "curriculo" && (
           <section className="rounded-3xl bg-white border border-crema-300 shadow-sm p-6 space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-crema-200">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-terracotta-600">
-                  Currículo Nacional MINEDU en Base de Datos
-                </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-tierra-900">
-                  Grafo de Niveles y Temas Extraídos desde PDF
+                  Temas Curriculares por Nivel
                 </h2>
                 <p className="text-sm text-tierra-600">
-                  Sube el PDF curricular de tu escuela para que el bot extraiga
-                  y clasifique todos los temas por Nivel en Supabase.
+                  Sube el PDF de tu programación anual o unidad didáctica para
+                  extraer automáticamente los temas de cada nivel.
                 </p>
               </div>
 
@@ -871,9 +867,7 @@ export default function MaestroDashboardPage() {
                 <label className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-terracotta-500 hover:bg-terracotta-600 text-white font-bold text-sm cursor-pointer shadow-sm">
                   <Upload className="w-4 h-4" />
                   <span>
-                    {subiendoPdf
-                      ? "Analizando PDF..."
-                      : "Subir PDF de Temas MINEDU"}
+                    {subiendoPdf ? "Leyendo PDF..." : "Subir PDF de Unidades"}
                   </span>
                   <input
                     type="file"
@@ -890,10 +884,25 @@ export default function MaestroDashboardPage() {
                   className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-crema-100 hover:bg-crema-200 text-tierra-800 border border-crema-300 font-bold text-sm cursor-pointer"
                 >
                   <Plus className="w-4 h-4 text-terracotta-600" />
-                  Añadir Tema Manual
+                  Agregar Tema Manual
                 </button>
               </div>
             </div>
+
+            {mensajePdf && (
+              <div className="p-4 rounded-2xl bg-valle-50 border border-valle-500/30 text-valle-700 text-sm flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 shrink-0" />
+                  <span className="font-medium">{mensajePdf}</span>
+                </div>
+                <button
+                  onClick={() => setMensajePdf(null)}
+                  className="text-xs font-bold underline"
+                >
+                  Cerrar
+                </button>
+              </div>
+            )}
 
             {mostrarModalNuevoTema && (
               <form
@@ -942,7 +951,7 @@ export default function MaestroDashboardPage() {
                     required
                     value={nuevoTemaTitulo}
                     onChange={(e) => setNuevoTemaTitulo(e.target.value)}
-                    placeholder="Ej: Suma de fracciones en parcelas"
+                    placeholder="Ej: Suma de fracciones homogéneas"
                     className="w-full rounded-xl border border-crema-300 bg-white px-3 py-2 text-sm"
                   />
                 </div>
@@ -950,7 +959,7 @@ export default function MaestroDashboardPage() {
                   type="submit"
                   className="py-2 px-4 rounded-xl bg-valle-600 hover:bg-valle-700 text-white font-bold text-sm cursor-pointer"
                 >
-                  Guardar en BD
+                  Guardar Tema
                 </button>
               </form>
             )}
@@ -986,7 +995,7 @@ export default function MaestroDashboardPage() {
                         </span>
                       </div>
 
-                      <div className="mt-3 space-y-2.5">
+                      <div className="mt-3 space-y-2.5 max-h-96 overflow-y-auto pr-1">
                         {temasDeEsteNivel.map((tema) => {
                           const esSeleccionadoHoy = temaActivoId === tema.id;
                           return (
@@ -1011,7 +1020,7 @@ export default function MaestroDashboardPage() {
                                 {esSeleccionadoHoy && (
                                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-terracotta-600">
                                     <CheckCircle2 className="w-3.5 h-3.5" />
-                                    Activo hoy
+                                    Elegido
                                   </span>
                                 )}
                               </div>
@@ -1032,17 +1041,28 @@ export default function MaestroDashboardPage() {
                       onClick={() => setTabActiva("estudio")}
                       className="mt-4 w-full py-2 rounded-xl bg-white hover:bg-crema-100 border border-crema-300 text-xs font-bold text-terracotta-600 cursor-pointer"
                     >
-                      Usar tema seleccionado en la Clase →
+                      Volver a Preparar Clase →
                     </button>
                   </div>
                 );
               })}
             </div>
+
+            {documentos.length > 0 && (
+              <div className="pt-2 border-t border-crema-200 text-xs text-tierra-600 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-terracotta-500" />
+                <span>
+                  Último archivo subido:{" "}
+                  <strong>{documentos[0].nombre_archivo}</strong> (
+                  {documentos[0].total_temas} temas registrados)
+                </span>
+              </div>
+            )}
           </section>
         )}
 
         {/* =====================================================================
-            PESTAÑA 3: PROGRESO Y ANALÍTICA MULTINIVEL DE LOS ESTUDIANTES
+            PESTAÑA 3: SEGUIMIENTO DE ESTUDIANTES
         ===================================================================== */}
         {tabActiva === "progreso" && (
           <div className="space-y-6">
@@ -1050,12 +1070,12 @@ export default function MaestroDashboardPage() {
               <div className="rounded-3xl bg-white border border-crema-300 shadow-sm p-5">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold uppercase tracking-wider text-valle-700">
-                    Mapa de Dominio Multinivel
+                    Desempeño por Áreas
                   </span>
                   <GraduationCap className="w-4 h-4 text-valle-600" />
                 </div>
                 <h3 className="text-base font-bold text-tierra-900 mb-2">
-                  Equilibrio de Competencias por Nivel
+                  Avance por Nivel del Salón
                 </h3>
                 <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1103,7 +1123,7 @@ export default function MaestroDashboardPage() {
               <div className="rounded-3xl bg-white border border-crema-300 shadow-sm p-5">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold uppercase tracking-wider text-lago-600">
-                    Progreso Sostenido
+                    Historial de Clases
                   </span>
                   <TrendingUp className="w-4 h-4 text-lago-600" />
                 </div>
@@ -1153,7 +1173,7 @@ export default function MaestroDashboardPage() {
 
             <div className="rounded-3xl bg-white border border-crema-300 shadow-sm p-5">
               <h3 className="text-lg font-bold text-tierra-900 mb-4">
-                Estudiantes del Aula por Nivel ({alumnos.length})
+                Estudiantes Registrados ({alumnos.length})
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {alumnos.map((al, idx) => {

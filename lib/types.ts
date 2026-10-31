@@ -38,6 +38,8 @@ export interface RetoGrado {
   nivel_nombre?: string;
   tema_curricular?: string;
   area_curricular?: string;
+  explicacion_previa?: string;
+  ejemplo_corto?: string;
   instruccion: string;
   tipo_mecanica: TipoMecanica;
   opciones?: string[];
@@ -49,6 +51,7 @@ export interface FaseMision {
   numero_fase: number;
   titulo_fase?: string;
   narrativa_fase: string;
+  explicacion_general?: string;
   prompt_sdxl?: string;
   retos_grados: RetoGrado[];
 }

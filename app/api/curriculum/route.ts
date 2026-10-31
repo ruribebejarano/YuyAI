@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import zlib from "zlib";
 import { supabase } from "@/lib/supabase";
 import { NivelAulaRow, TemaCurricularRow } from "@/lib/types";
 
@@ -22,60 +23,92 @@ interface ExtractedCurriculum {
   }>;
 }
 
-function extractReadableTextFromPdfBuffer(buffer: Buffer): string {
-  const raw = buffer.toString("latin1");
-  const fragmentos: string[] = [];
+function decodificarTextoPdf(cadena: string): string {
+  return cadena
+    .replace(/\\n|\\r/g, " ")
+    .replace(/\\([()\\])/g, "$1")
+    .replace(/[^\x20-\x7EÁÉÍÓÚáéíóúÑñ¿¡°]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  // Extraer cadenas literales entre paréntesis en bloques de texto PDF
-  const regexParentesis = /\(([^()\\]{3,200})\)/g;
+function extractReadableTextFromPdfBuffer(buffer: Buffer): string {
+  const fragmentos: string[] = [];
+  const rawLatin1 = buffer.toString("latin1");
+
+  // 1. Descomprimir bloques stream...endstream (FlateDecode) donde están los textos reales del PDF
+  const regexStream = /stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g;
+  let streamMatch: RegExpExecArray | null;
+  while ((streamMatch = regexStream.exec(rawLatin1)) !== null) {
+    try {
+      const streamBytes = Buffer.from(streamMatch[1], "latin1");
+      const descomprimido = zlib.inflateSync(streamBytes).toString("latin1");
+      const regexPar = /\(([^()]{2,250})\)/g;
+      let m: RegExpExecArray | null;
+      while ((m = regexPar.exec(descomprimido)) !== null) {
+        const limpio = decodificarTextoPdf(m[1]);
+        if (limpio.length >= 3 && /[a-zA-ZáéíóúÁÉÍÓÚ]/.test(limpio)) {
+          fragmentos.push(limpio);
+        }
+      }
+    } catch {
+      // No todos los streams son FlateDecode (ej. imágenes)
+    }
+  }
+
+  // 2. También extraer texto directo sin comprimir
+  const regexDirecto = /\(([^()\\]{3,200})\)/g;
   let match: RegExpExecArray | null;
-  while ((match = regexParentesis.exec(raw)) !== null) {
-    const limpio = match[1]
-      .replace(/\\n|\\r/g, " ")
-      .replace(/[^\x20-\x7EÁÉÍÓÚáéíóúÑñ¿¡]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (limpio.length >= 4 && /[a-zA-ZáéíóúÁÉÍÓÚ]/.test(limpio)) {
+  while ((match = regexDirecto.exec(rawLatin1)) !== null) {
+    const limpio = decodificarTextoPdf(match[1]);
+    if (
+      limpio.length >= 4 &&
+      /[a-zA-ZáéíóúÁÉÍÓÚ]/.test(limpio) &&
+      !/Type|Font|Page|Filter|FlateDecode|Obj/i.test(limpio)
+    ) {
       fragmentos.push(limpio);
     }
   }
 
-  const texto = fragmentos.join(" ").slice(0, 18000);
-  if (texto.length > 80) return texto;
-
-  // Fallback extrayendo secuencias legibles ASCII/Latin
-  const secuencias =
-    raw
-      .match(/[A-Za-zÁÉÍÓÚáéíóúÑñ0-9 ,.;:()\-/]{6,}/g)
-      ?.filter((s) => /[aeiouAEIOU]/.test(s))
-      .join(" ")
-      .slice(0, 15000) || "";
-
-  return secuencias;
+  const textoUnido = fragmentos.join(" ").slice(0, 18000);
+  return textoUnido;
 }
 
-async function parsePdfWithGemini(
-  base64Pdf: string,
-  extractedText: string,
-  fileName: string,
-  apiKey: string
-): Promise<ExtractedCurriculum | null> {
-  if (!apiKey) return null;
+const PROMPT_EXTRACCION = (fileName: string, extractedText: string) => `Eres un docente coordinador de educación primaria rural del Perú (MINEDU).
+Analiza el contenido extraído del documento PDF "${fileName}" y extrae los temas de clase organizados en 3 niveles del aula:
+- "nivel_1": Nivel 1 · Ciclo III (1.° y 2.° grado)
+- "nivel_2": Nivel 2 · Ciclo IV (3.° y 4.° grado)
+- "nivel_3": Nivel 3 · Ciclo V (5.° y 6.° grado)
 
-  const prompt = `Eres un especialista curricular del MINEDU (Perú) para educación primaria rural multigrado/multinivel.
-Analiza el documento curricular adjunto ("${fileName}") e identifica:
-1. Los NIVELES o CICLOS que aparecen (en educación rural multigrado del MINEDU se organiza por niveles como Nivel 1 / Ciclo III, Nivel 2 / Ciclo IV, Nivel 3 / Ciclo V, o los niveles que indique el documento).
-2. Todos los TEMAS curriculares que pertenecen a cada nivel, indicando área curricular (Matemática, Comunicación, Ciencia y Tecnología, Personal Social), título del tema, competencia MINEDU y desempeño esperado.
+Contenido del documento PDF:
+"""
+${extractedText.slice(0, 10000) || `Programación curricular: ${fileName}`}
+"""
 
-Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
+Extrae entre 6 y 9 temas concretos basados fielmente en el documento (al menos 2 temas para cada nivel).
+Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura exacta:
 {
   "niveles": [
     {
       "codigo": "nivel_1",
       "nombre": "Nivel 1 · Ciclo III",
-      "descripcion": "Descripción breve del nivel",
-      "color_hex": "#C85A32",
+      "descripcion": "1.° y 2.° grado",
+      "color_hex": "#238564",
       "orden": 1
+    },
+    {
+      "codigo": "nivel_2",
+      "nombre": "Nivel 2 · Ciclo IV",
+      "descripcion": "3.° y 4.° grado",
+      "color_hex": "#2B6CB0",
+      "orden": 2
+    },
+    {
+      "codigo": "nivel_3",
+      "nombre": "Nivel 3 · Ciclo V",
+      "descripcion": "5.° y 6.° grado",
+      "color_hex": "#D4653B",
+      "orden": 3
     }
   ],
   "temas": [
@@ -83,198 +116,111 @@ Devuelve EXCLUSIVAMENTE un JSON válido con esta estructura:
       "nivel_codigo": "nivel_1",
       "nivel_nombre": "Nivel 1 · Ciclo III",
       "area_curricular": "Matemática",
-      "titulo_tema": "Título claro del tema",
-      "competencia_minedu": "Competencia MINEDU asociada",
-      "desempeno_esperado": "Desempeño específico del estudiante"
+      "titulo_tema": "Título concreto extraído del PDF",
+      "competencia_minedu": "Competencia asociada",
+      "desempeno_esperado": "Qué aprenderá el niño en este tema"
     }
   ]
 }`;
 
-  const parts: Array<Record<string, unknown>> = [{ text: prompt }];
-  if (base64Pdf && base64Pdf.length < 4_000_000) {
-    parts.push({
-      inlineData: {
-        mimeType: "application/pdf",
-        data: base64Pdf,
-      },
-    });
-  }
-  if (extractedText) {
-    parts.push({
-      text: `Texto adicional extraído del documento:\n${extractedText.slice(0, 12000)}`,
-    });
-  }
+async function parsePdfWithLiveLLM(
+  base64Pdf: string,
+  extractedText: string,
+  fileName: string,
+  apiKey: string
+): Promise<ExtractedCurriculum | null> {
+  const promptText = PROMPT_EXTRACCION(fileName, extractedText);
 
-  const payload = {
-    contents: [{ role: "user", parts }],
-    generationConfig: {
-      temperature: 0.3,
-      responseMimeType: "application/json",
-    },
-  };
-
-  const endpoints = apiKey.startsWith("AQ.")
-    ? [
-        `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      ]
-    : [
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      ];
-
-  for (const url of endpoints) {
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+  // 1. Intentar con Gemini API si la clave está activa
+  if (apiKey) {
+    const parts: Array<Record<string, unknown>> = [{ text: promptText }];
+    if (base64Pdf && base64Pdf.length < 3_500_000) {
+      parts.push({
+        inlineData: {
+          mimeType: "application/pdf",
+          data: base64Pdf,
+        },
       });
-      if (!res.ok) continue;
-      const data = await res.json();
-      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawText) continue;
-      const parsed = JSON.parse(
-        rawText.replace(/```json|```/g, "").trim()
-      ) as ExtractedCurriculum;
-      if (Array.isArray(parsed?.temas) && parsed.temas.length > 0) {
-        return parsed;
-      }
-    } catch {
-      // Continúa al analizador heurístico local
     }
+
+    const endpoints = [
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts }],
+            generationConfig: {
+              temperature: 0.3,
+              responseMimeType: "application/json",
+            },
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            const parsed = JSON.parse(
+              rawText.replace(/```json|```/g, "").trim()
+            ) as ExtractedCurriculum;
+            if (Array.isArray(parsed?.temas) && parsed.temas.length > 0) {
+              return parsed;
+            }
+          }
+        }
+      } catch {
+        // Pasa al motor LLM en vivo de respaldo
+      }
+    }
+  }
+
+  // 2. Motor LLM en vivo (OpenAI / Pollinations JSON) para leer el texto real del PDF
+  try {
+    const llmRes = await fetch("https://text.pollinations.ai/openai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "openai",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Eres un especialista curricular escolar. Devuelve únicamente JSON válido sin bloques markdown.",
+          },
+          { role: "user", content: promptText },
+        ],
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    if (llmRes.ok) {
+      const llmData = await llmRes.json();
+      const rawContent = llmData?.choices?.[0]?.message?.content;
+      if (rawContent) {
+        const parsed = JSON.parse(
+          rawContent.replace(/```json|```/g, "").trim()
+        ) as ExtractedCurriculum;
+        if (Array.isArray(parsed?.temas) && parsed.temas.length > 0) {
+          return parsed;
+        }
+      }
+    }
+  } catch {
+    // Fallback local
   }
 
   return null;
 }
 
-function buildSmartHeuristicCurriculum(
-  fileName: string,
-  extractedText: string
-): ExtractedCurriculum {
-  const cleanName = fileName
-    .replace(/\.pdf$/i, "")
-    .replace(/[_-]+/g, " ")
-    .trim();
-
-  // Buscar oraciones o líneas con sentido pedagógico dentro del texto extraído del PDF
-  const candidatos = extractedText
-    .split(/[.;\n]/)
-    .map((s) => s.trim())
-    .filter(
-      (s) =>
-        s.length >= 18 &&
-        s.length <= 110 &&
-        !/obj|endobj|stream|xref|font|Type|Page/i.test(s)
-    )
-    .slice(0, 9);
-
-  const niveles = [
-    {
-      codigo: "nivel_1",
-      nombre: "Nivel 1 · Ciclo III (Iniciación)",
-      descripcion:
-        "Noción de cantidad, agrupación concreta por decenas y expresión oral",
-      color_hex: "#C85A32",
-      orden: 1,
-    },
-    {
-      codigo: "nivel_2",
-      nombre: "Nivel 2 · Ciclo IV (Desarrollo)",
-      descripcion:
-        "Operaciones multiplicativas, reparto equitativo, patrones y comprensión lectora",
-      color_hex: "#1F7A5C",
-      orden: 2,
-    },
-    {
-      codigo: "nivel_3",
-      nombre: "Nivel 3 · Ciclo V (Consolidación)",
-      descripcion:
-        "Fracciones, proporcionalidad, estadística comunitaria y argumentación",
-      color_hex: "#2B6CB0",
-      orden: 3,
-    },
-  ];
-
-  const temasPorDefecto = [
-    {
-      nivel_codigo: "nivel_1",
-      nivel_nombre: "Nivel 1 · Ciclo III (Iniciación)",
-      area_curricular: "Matemática",
-      titulo_tema:
-        candidatos[0] ||
-        `Conteo y agrupación con decenas (${cleanName})`,
-      competencia_minedu: "Resuelve problemas de cantidad",
-      desempeno_esperado:
-        "Establece relaciones entre datos de hasta dos cifras y las transforma en expresiones de adición y sustracción.",
-    },
-    {
-      nivel_codigo: "nivel_1",
-      nivel_nombre: "Nivel 1 · Ciclo III (Iniciación)",
-      area_curricular: "Comunicación",
-      titulo_tema:
-        candidatos[1] ||
-        `Relatos orales y vocabulario de la comunidad (${cleanName})`,
-      competencia_minedu: "Lee diversos tipos de textos en su lengua materna",
-      desempeno_esperado:
-        "Identifica información explícita que se encuentra en distintas partes del texto narrativo.",
-    },
-    {
-      nivel_codigo: "nivel_2",
-      nivel_nombre: "Nivel 2 · Ciclo IV (Desarrollo)",
-      area_curricular: "Matemática",
-      titulo_tema:
-        candidatos[2] ||
-        `Multiplicación y reparto equitativo en parcelas (${cleanName})`,
-      competencia_minedu: "Resuelve problemas de cantidad",
-      desempeno_esperado:
-        "Emplea estrategias heurísticas y de cálculo mental con multiplicaciones y divisiones exactas.",
-    },
-    {
-      nivel_codigo: "nivel_2",
-      nivel_nombre: "Nivel 2 · Ciclo IV (Desarrollo)",
-      area_curricular: "Ciencia y Tecnología",
-      titulo_tema:
-        candidatos[3] ||
-        `Uso sostenible del agua y suelos agrícolas (${cleanName})`,
-      competencia_minedu:
-        "Explica el mundo físico basándose en conocimientos sobre los seres vivos",
-      desempeno_esperado:
-        "Describe las interacciones entre el agua, el suelo y los cultivos de su entorno.",
-    },
-    {
-      nivel_codigo: "nivel_3",
-      nivel_nombre: "Nivel 3 · Ciclo V (Consolidación)",
-      area_curricular: "Matemática",
-      titulo_tema:
-        candidatos[4] ||
-        `Fracciones, porcentajes y promedios de cosecha (${cleanName})`,
-      competencia_minedu:
-        "Resuelve problemas de cantidad y gestión de datos",
-      desempeno_esperado:
-        "Expresa su comprensión de las fracciones y promedios al resolver problemas de producción comunal.",
-    },
-    {
-      nivel_codigo: "nivel_3",
-      nivel_nombre: "Nivel 3 · Ciclo V (Consolidación)",
-      area_curricular: "Personal Social",
-      titulo_tema:
-        candidatos[5] ||
-        `Organización comunal y cuidado de las cuencas (${cleanName})`,
-      competencia_minedu:
-        "Gestiona responsablemente el espacio y el ambiente",
-      desempeno_esperado:
-        "Propone alternativas de solución ante retos ambientales y productivos de su localidad.",
-    },
-  ];
-
-  return { niveles, temas: temasPorDefecto };
-}
-
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") || "";
-    let fileName = "Documento_Curricular_MINEDU.pdf";
+    let fileName = "Programacion_Curricular.pdf";
     let base64Pdf = "";
     let extractedText = "";
 
@@ -301,15 +247,21 @@ export async function POST(req: NextRequest) {
     }
 
     const apiKey = process.env.GEMINI_API_KEY || "";
-    let resultado = await parsePdfWithGemini(
+    const resultado = await parsePdfWithLiveLLM(
       base64Pdf,
       extractedText,
       fileName,
       apiKey
     );
 
-    if (!resultado) {
-      resultado = buildSmartHeuristicCurriculum(fileName, extractedText);
+    if (!resultado || !Array.isArray(resultado.temas)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "No se pudieron identificar temas en el archivo subido.",
+        },
+        { status: 400 }
+      );
     }
 
     // 1. Registrar el documento PDF en Supabase
@@ -323,9 +275,36 @@ export async function POST(req: NextRequest) {
       .select("*")
       .single();
 
-    // 2. Guardar o actualizar los niveles detectados en Supabase
+    // 2. Asegurar niveles en Supabase
     const mapaNiveles: Record<string, NivelAulaRow> = {};
-    for (const niv of resultado.niveles) {
+    const nivelesBase =
+      Array.isArray(resultado.niveles) && resultado.niveles.length > 0
+        ? resultado.niveles
+        : [
+            {
+              codigo: "nivel_1",
+              nombre: "Nivel 1 · Ciclo III",
+              descripcion: "1.° y 2.° grado",
+              color_hex: "#238564",
+              orden: 1,
+            },
+            {
+              codigo: "nivel_2",
+              nombre: "Nivel 2 · Ciclo IV",
+              descripcion: "3.° y 4.° grado",
+              color_hex: "#2B6CB0",
+              orden: 2,
+            },
+            {
+              codigo: "nivel_3",
+              nombre: "Nivel 3 · Ciclo V",
+              descripcion: "5.° y 6.° grado",
+              color_hex: "#D4653B",
+              orden: 3,
+            },
+          ];
+
+    for (const niv of nivelesBase) {
       const { data: nivelGuardado } = await supabase
         .from("niveles_aula")
         .upsert(
@@ -333,7 +312,7 @@ export async function POST(req: NextRequest) {
             codigo: niv.codigo,
             nombre: niv.nombre,
             descripcion: niv.descripcion,
-            color_hex: niv.color_hex || "#C85A32",
+            color_hex: niv.color_hex || "#238564",
             orden: niv.orden || 1,
             activo: true,
           },
@@ -347,19 +326,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Guardar todos los temas extraídos del PDF en Supabase
+    // 3. Guardar los temas recién extraídos en Supabase
     const filasTemas = resultado.temas.map((t, index) => ({
       documento_id: docInsertado?.id || null,
       nivel_id: mapaNiveles[t.nivel_codigo]?.id || null,
-      nivel_codigo: t.nivel_codigo,
+      nivel_codigo: t.nivel_codigo || `nivel_${(index % 3) + 1}`,
       nivel_nombre:
-        mapaNiveles[t.nivel_codigo]?.nombre || t.nivel_nombre || "Nivel 1",
+        mapaNiveles[t.nivel_codigo]?.nombre ||
+        t.nivel_nombre ||
+        `Nivel ${(index % 3) + 1}`,
       area_curricular: t.area_curricular || "Matemática",
       titulo_tema: t.titulo_tema,
       competencia_minedu:
         t.competencia_minedu || "Resuelve problemas de cantidad",
       desempeno_esperado: t.desempeno_esperado || "",
-      estado: index === 0 ? "en_curso" : "pendiente",
+      estado: "en_curso",
       orden: index + 1,
     }));
 
@@ -373,6 +354,7 @@ export async function POST(req: NextRequest) {
       documento: docInsertado,
       niveles: Object.values(mapaNiveles),
       temas: (temasInsertados as TemaCurricularRow[]) || filasTemas,
+      texto_muestra: extractedText.slice(0, 300),
     });
   } catch (err) {
     return NextResponse.json(

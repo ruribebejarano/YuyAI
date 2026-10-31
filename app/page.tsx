@@ -1,175 +1,134 @@
 import Link from "next/link";
-import {
-  Compass,
-  BookOpen,
-  Mountain,
-  FileText,
-  Layers,
-  Volume2,
-  ArrowRight,
-  CheckCircle2,
-} from "lucide-react";
+import { BookOpen, Play, Users, Sparkles } from "lucide-react";
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col bg-crema-100 text-tierra-900">
-      {/* Barra de Navegación Limpia y Natural */}
-      <header className="sticky top-0 z-30 border-b border-crema-300 bg-crema-50/95 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-crema-100 text-tierra-900 flex flex-col justify-between">
+      {/* Cabecera simple y limpia de escuela */}
+      <header className="w-full border-b border-crema-300 bg-crema-50">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-terracotta-600 text-white shadow-sm">
-              <Mountain className="h-6 w-6" />
+            <div className="w-10 h-10 rounded-xl bg-terracotta-500 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+              Y
             </div>
             <div>
-              <span className="text-xl font-extrabold tracking-tight text-tierra-900 sm:text-2xl">
-                Yuy<span className="text-terracotta-600">AI</span>
+              <span className="font-bold text-lg text-tierra-900 block leading-none">
+                YuyAI · Aula Primaria Multinivel
               </span>
-              <p className="text-xs font-semibold text-tierra-600">
-                Escuela Primaria Multinivel · MINEDU
-              </p>
+              <span className="text-xs text-tierra-600">
+                Ciclos III, IV y V · Educación Primaria
+              </span>
             </div>
           </div>
 
-          <nav className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-2.5">
             <Link
               href="/maestro/dashboard"
-              className="rounded-xl border border-crema-300 bg-white px-4 py-2 text-sm font-bold text-tierra-800 shadow-sm transition hover:border-terracotta-500 hover:text-terracotta-600 sm:text-base"
+              className="px-4 py-2 rounded-xl bg-white hover:bg-crema-200 text-tierra-800 border border-crema-300 text-xs sm:text-sm font-bold transition-colors"
             >
-              Cuaderno del Maestro
+              Sala del Docente
             </Link>
             <Link
               href="/aula/mision-viva"
-              className="rounded-xl bg-valle-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-valle-700 sm:text-base"
+              className="px-4 py-2 rounded-xl bg-terracotta-500 hover:bg-terracotta-600 text-white text-xs sm:text-sm font-bold transition-colors shadow-sm"
             >
-              Proyectar Clase Viva
+              Pizarra del Salón
             </Link>
-          </nav>
+          </div>
         </div>
       </header>
 
-      {/* Sección Principal */}
-      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12">
-          <div className="space-y-6 lg:col-span-7">
-            <div className="inline-flex items-center gap-2 rounded-full border border-valle-500/30 bg-valle-50 px-4 py-1.5 text-sm font-bold text-valle-700">
-              <Layers className="h-4 w-4" />
-              <span>Organización flexible por Niveles y Ciclos MINEDU</span>
-            </div>
-
-            <h1 className="text-3xl font-black leading-tight tracking-tight text-tierra-900 sm:text-5xl">
-              Transforma tu PDF curricular en una{" "}
-              <span className="text-terracotta-600">
-                aventura compartida para todos los niveles de tu aula
-              </span>
-            </h1>
-
-            <p className="text-base leading-relaxed text-tierra-700 sm:text-lg">
-              Diseñado para docentes de primaria multigrado: sube el documento
-              PDF con los temas del MINEDU, organiza qué temas corresponden a
-              cada nivel en la base de datos y genera la sesión interactiva del
-              día con acompañamiento por voz e ilustraciones creadas al
-              instante.
-            </p>
-
-            <div className="flex flex-col gap-3.5 pt-2 sm:flex-row">
-              <Link
-                href="/maestro/dashboard"
-                className="inline-flex items-center justify-center gap-2.5 rounded-2xl bg-terracotta-600 px-6 py-4 text-base font-extrabold text-white shadow-md transition hover:bg-terracotta-700 sm:text-lg"
-              >
-                <Compass className="h-5 w-5" />
-                <span>Abrir Centro del Maestro</span>
-                <ArrowRight className="h-5 w-5" />
-              </Link>
-
-              <Link
-                href="/aula/mision-viva"
-                className="inline-flex items-center justify-center gap-2.5 rounded-2xl border-2 border-valle-600 bg-white px-6 py-4 text-base font-extrabold text-valle-700 shadow-sm transition hover:bg-valle-50 sm:text-lg"
-              >
-                <BookOpen className="h-5 w-5" />
-                <span>Ir a la Clase Interactiva</span>
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 pt-4 sm:grid-cols-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-tierra-700">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-valle-600" />
-                <span>Carga de PDF por Niveles</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm font-semibold text-tierra-700">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-valle-600" />
-                <span>Grafo Curricular en BD</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm font-semibold text-tierra-700">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-valle-600" />
-                <span>Pistas habladas por voz</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Tarjeta visual de flujo pedagógico */}
-          <div className="lg:col-span-5">
-            <div className="overflow-hidden rounded-3xl border border-crema-300 bg-white p-6 shadow-lg sm:p-8">
-              <h2 className="text-lg font-extrabold text-tierra-900 sm:text-xl">
-                ¿Cómo funciona en el aula?
-              </h2>
-              <p className="mt-1 text-sm text-tierra-600">
-                Flujo completo conectado a Supabase, Gemini y RunPod SDXL Turbo
-              </p>
-
-              <div className="mt-6 space-y-5">
-                <div className="flex items-start gap-4 rounded-2xl bg-crema-50 p-4 border border-crema-200">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-terracotta-100 text-terracotta-700 font-black">
-                    <FileText className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-tierra-900">
-                      1. Sube el PDF de Temas MINEDU
-                    </h3>
-                    <p className="mt-0.5 text-sm text-tierra-700">
-                      El sistema identifica los niveles del aula y guarda todos
-                      los temas de cada nivel en la base de datos.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4 rounded-2xl bg-crema-50 p-4 border border-crema-200">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-valle-100 text-valle-700 font-black">
-                    <Layers className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-tierra-900">
-                      2. Elige los Temas del Día por Nivel
-                    </h3>
-                    <p className="mt-0.5 text-sm text-tierra-700">
-                      Explora el grafo de temas por nivel y selecciona qué tema
-                      trabajará hoy el Nivel 1, Nivel 2 o Nivel 3.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4 rounded-2xl bg-crema-50 p-4 border border-crema-200">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-lago-100 text-lago-600 font-black">
-                    <Volume2 className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-tierra-900">
-                      3. Clase Interactiva con Voz e Imagen
-                    </h3>
-                    <p className="mt-0.5 text-sm text-tierra-700">
-                      Cada nivel resuelve sus retos en pantalla con pistas
-                      habladas automáticas cuando necesitan apoyo.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* Cuerpo central directo y natural */}
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 py-10 w-full">
+        <div className="text-center max-w-2xl mx-auto mb-10 space-y-3">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-valle-100 text-valle-700 text-xs font-bold">
+            <Sparkles className="w-3.5 h-3.5" />
+            Sesiones Interactivas por Niveles
+          </span>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-tierra-900 tracking-tight">
+            Una misma historia en el aula, un aprendizaje para cada nivel
+          </h1>
+          <p className="text-sm sm:text-base text-tierra-700">
+            Elige dónde deseas ingresar hoy para comenzar la sesión escolar.
+          </p>
         </div>
-      </main>
 
-      <footer className="border-t border-crema-300 bg-crema-50 py-4 text-center text-xs font-medium text-tierra-600 sm:text-sm">
-        YuyAI · Plataforma pedagógica multinivel para escuelas primarias
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Tarjeta 1: Docente */}
+          <Link
+            href="/maestro/dashboard"
+            className="group rounded-3xl bg-white border-2 border-crema-300 hover:border-terracotta-500 p-7 shadow-sm transition-all flex flex-col justify-between"
+          >
+            <div className="space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-terracotta-100 text-terracotta-600 flex items-center justify-center">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-terracotta-600">
+                  Para el Profesor
+                </span>
+                <h2 className="text-2xl font-bold text-tierra-900 mt-1">
+                  Preparar la Clase del Día
+                </h2>
+                <p className="text-sm text-tierra-700 mt-2 leading-relaxed">
+                  Sube tu programación en PDF, elige los temas que trabajará
+                  cada nivel del salón y genera el cuento ilustrado con su
+                  explicación teórica y ejercicios.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-crema-200 flex items-center justify-between text-sm font-bold text-terracotta-600">
+              <span>Entrar al Planificador Docente</span>
+              <span className="group-hover:translate-x-1 transition-transform">
+                →
+              </span>
+            </div>
+          </Link>
+
+          {/* Tarjeta 2: Aula */}
+          <Link
+            href="/aula/mision-viva"
+            className="group rounded-3xl bg-white border-2 border-crema-300 hover:border-valle-500 p-7 shadow-sm transition-all flex flex-col justify-between"
+          >
+            <div className="space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-valle-100 text-valle-600 flex items-center justify-center">
+                <Play className="w-6 h-6 fill-current" />
+              </div>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-valle-700">
+                  Para Proyectar con los Niños
+                </span>
+                <h2 className="text-2xl font-bold text-tierra-900 mt-1">
+                  Pizarra Interactiva del Salón
+                </h2>
+                <p className="text-sm text-tierra-700 mt-2 leading-relaxed">
+                  Presenta primero el capítulo del cuento ilustrado y la
+                  explicación corta para cada grupo, y luego pasa a resolver
+                  las preguntas en equipo.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-crema-200 flex items-center justify-between text-sm font-bold text-valle-700">
+              <span>Abrir Pizarra de Clase</span>
+              <span className="group-hover:translate-x-1 transition-transform">
+                →
+              </span>
+            </div>
+          </Link>
+        </div>
+      </section>
+
+      <footer className="border-t border-crema-300 bg-crema-50 py-4 text-center text-xs text-tierra-600">
+        <div className="max-w-5xl mx-auto px-4 flex flex-wrap items-center justify-between gap-2">
+          <span>Escuela Primaria Multinivel · YuyAI</span>
+          <span className="inline-flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-terracotta-500" />
+            Nivel 1 (Ciclo III) · Nivel 2 (Ciclo IV) · Nivel 3 (Ciclo V)
+          </span>
+        </div>
       </footer>
-    </div>
+    </main>
   );
 }
