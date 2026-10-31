@@ -66,7 +66,8 @@ export default function MisionVivaPage() {
 
   useEffect(() => {
     try {
-      const guardada = localStorage.getItem("yuyai_mision_activa");
+      localStorage.removeItem("yuyai_mision_activa");
+      const guardada = localStorage.getItem("yuyai_mision_activa_v3");
       if (guardada) {
         const parsed = JSON.parse(guardada) as MisionYuyAI;
         if (parsed && Array.isArray(parsed.fases) && parsed.fases.length > 0) {
@@ -135,7 +136,7 @@ export default function MisionVivaPage() {
         : faseActual.prompt_sdxl ||
           `${mision.prompt_sdxl_base}, chapter ${faseActual.numero_fase}`;
       const promptFinal = escenaPersonalizada
-        ? `Warm children storybook illustration of ${escenaPersonalizada}, Andean primary school setting, vibrant colors`
+        ? `Modern colorful children storybook illustration of ${escenaPersonalizada}, bright primary school setting, vibrant colors`
         : promptBase;
 
       try {
@@ -495,7 +496,7 @@ export default function MisionVivaPage() {
                   type="text"
                   value={promptEscenaExtra}
                   onChange={(e) => setPromptEscenaExtra(e.target.value)}
-                  placeholder="¿Qué quieres dibujar en la escena? (ej: niños observando plantas y montañas)"
+                  placeholder="¿Qué quieres dibujar en la escena? (ej: niños haciendo un experimento o leyendo en el jardín)"
                   className="flex-1 min-w-0 rounded-xl bg-white border border-crema-300 px-3 py-2 text-xs text-tierra-900 focus:outline-none focus:border-terracotta-500"
                 />
                 <button

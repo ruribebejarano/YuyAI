@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Forzar ejecución al máximo tiempo permitido
 export const maxDuration = 60;
 
 function extractBase64Image(output: unknown): string | null {
@@ -45,6 +44,11 @@ async function runSdxlTurboJob(
   runpodKey: string,
   prompt: string
 ): Promise<string | null> {
+  // Limpiar cualquier estereotipo forzado antiguo si viniera de caché
+  const cleanPrompt = prompt
+    .replace(/Andean rural school children|Andean school children|Andean primary school/gi, "friendly primary school students")
+    .replace(/Andean mountains/gi, "bright modern school setting");
+
   const response = await fetch(`https://api.runpod.ai/v2/${endpointId}/runsync`, {
     method: "POST",
     headers: {
@@ -53,7 +57,7 @@ async function runSdxlTurboJob(
     },
     body: JSON.stringify({
       input: {
-        prompt: `${prompt}, warm colorful educational storybook illustration, Andean mountains, high quality`,
+        prompt: `${cleanPrompt}, modern colorful educational storybook illustration, cheerful primary school kids learning together, Pixar and Ghibli inspired digital art, high quality`,
         num_inference_steps: 1,
         guidance_scale: 0.0,
       },
@@ -67,7 +71,6 @@ async function runSdxlTurboJob(
     return extractBase64Image(data.output);
   }
 
-  // Si el worker está despertando (IN_QUEUE / IN_PROGRESS), hacer polling de estado
   const jobId = data?.id;
   if (jobId && (data?.status === "IN_QUEUE" || data?.status === "IN_PROGRESS")) {
     for (let i = 0; i < 14; i++) {
@@ -110,7 +113,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Intento 1 (y reintento automático si un worker frío dio error)
     let imageUrl = await runSdxlTurboJob(endpointId, runpodKey, prompt);
     if (!imageUrl) {
       imageUrl = await runSdxlTurboJob(endpointId, runpodKey, prompt);

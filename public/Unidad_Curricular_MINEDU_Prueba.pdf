@@ -6,37 +6,38 @@ endobj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
 endobj
 4 0 obj
-<< /Length 2716 >>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 2480 >>
 stream
 BT
 /F1 10 Tf
-36 750 Td
-16 TL
-(MINISTERIO DE EDUCACION DEL PERU - MINEDU) Tj T*
-(UNIDAD DIDACTICA MULTINIVEL: GEOMETRIA, MEDIDAS Y BIODIVERSIDAD ANDINA) Tj T*
+40 790 Td
+15 TL
+(PROGRAMACION CURRICULAR DE EDUCACION PRIMARIA - MINEDU) Tj T*
+(UNIDAD DIDACTICA INTEGRADA MULTINIVEL \(CICLOS III, IV Y V\)) Tj T*
 (------------------------------------------------------------------------) Tj T*
 (NIVEL 1 - CICLO III \(1.er y 2.do Grado de Primaria\):) Tj T*
-(- TEMA_N1_MAT_1: [Matematica] Conteo de lados y vertices en figuras geometricas del aula | Competencia: Resuelve problemas de forma, movimiento y localizacion | Desempeno: Identifica cuantos lados tienen cuadrados, triangulos y rectangulos en objetos cotidianos.) Tj T*
-(- TEMA_N1_MAT_2: [Matematica] Medicion de longitudes con pasos y palmos en el patio | Competencia: Resuelve problemas de forma, movimiento y localizacion | Desempeno: Estima y mide el largo de mesas y caminos usando pasos.) Tj T*
-(- TEMA_N1_CYT_1: [Ciencia y Tecnologia] Las partes de las plantas nativas y su crecimiento | Competencia: Explica el mundo fisico | Desempeno: Reconoce raiz, tallo, hojas y frutos en las plantas del huerto escolar.) Tj T*
+(TEMA_N1_CIENCIA: [Ciencia y Tecnologia] Los seres vivos, las plantas y sus partes | Competencia: Explica el mundo fisico | Desempeno: Reconoce la funcion de la raiz, el tallo, las hojas y la flor.) Tj T*
+(TEMA_N1_COMUNICACION: [Comunicacion] Comprension de cuentos: personajes e idea principal | Competencia: Lee diversos tipos de textos | Desempeno: Identifica personajes y mensaje principal.) Tj T*
+(TEMA_N1_MATEMATICA: [Matematica] Sumas y restas agrupando decenas y unidades | Competencia: Resuelve problemas de cantidad | Desempeno: Agrupa cantidades en decenas y unidades.) Tj T*
 (------------------------------------------------------------------------) Tj T*
 (NIVEL 2 - CICLO IV \(3.er y 4.to Grado de Primaria\):) Tj T*
-(- TEMA_N2_MAT_1: [Matematica] Calculo del perimetro de parcelas rectangulares y cuadradas | Competencia: Resuelve problemas de forma, movimiento y localizacion | Desempeno: Calcula el perimetro sumando la longitud de los cuatro lados de un terreno.) Tj T*
-(- TEMA_N2_MAT_2: [Matematica] Organizacion de datos en tablas de frecuencia de la cosecha | Competencia: Resuelve problemas de gestion de datos | Desempeno: Registra y compara cantidades de productos cosechados en tablas.) Tj T*
-(- TEMA_N2_CYT_1: [Ciencia y Tecnologia] Conservacion del suelo agricola y abonos organicos | Competencia: Explica el mundo fisico | Desempeno: Explica como el compost mejora la fertilidad de la tierra.) Tj T*
+(TEMA_N2_CIENCIA: [Ciencia y Tecnologia] Los estados del agua y el cuidado del medio ambiente | Competencia: Explica el mundo fisico | Desempeno: Diferencia los estados liquido, solido y gaseoso del agua.) Tj T*
+(TEMA_N2_SOCIAL: [Personal Social] Convivencia escolar, responsabilidades y trabajo en equipo | Competencia: Convive democraticamente | Desempeno: Practica acuerdos de convivencia y trabajo colaborativo.) Tj T*
+(TEMA_N2_MATEMATICA: [Matematica] Multiplicacion por grupos iguales y calculo de perimetros | Competencia: Resuelve problemas de cantidad y forma | Desempeno: Calcula multiplicaciones y perimetros.) Tj T*
 (------------------------------------------------------------------------) Tj T*
 (NIVEL 3 - CICLO V \(5.to y 6.to Grado de Primaria\):) Tj T*
-(- TEMA_N3_MAT_1: [Matematica] Calculo del area de terrenos rectangulares y triangulares | Competencia: Resuelve problemas de forma, movimiento y localizacion | Desempeno: Halla la superficie en metros cuadrados multiplicando base por altura.) Tj T*
-(- TEMA_N3_MAT_2: [Matematica] Porcentajes \(25% y 50%\) en la produccion y venta comunal | Competencia: Resuelve problemas de cantidad | Desempeno: Calcula el 25% y 50% de una cosecha para el ahorro escolar.) Tj T*
-(- TEMA_N3_PS_1: [Personal Social] Las regiones naturales y pisos ecologicos de los Andes | Competencia: Gestiona responsablemente el espacio y el ambiente | Desempeno: Relaciona la altitud con los cultivos de quechua, suni y puna.) Tj T*
+(TEMA_N3_CIENCIA: [Ciencia y Tecnologia] El sistema solar, las fuentes de energia y los ecosistemas | Competencia: Explica el mundo fisico | Desempeno: Relaciona la rotacion terrestre, energia solar y cadenas alimenticias.) Tj T*
+(TEMA_N3_SOCIAL: [Personal Social] La biodiversidad, el relieve y la prevencion de riesgos | Competencia: Gestiona responsablemente el espacio | Desempeno: Identifica ecosistemas y medidas de prevencion ante sismos.) Tj T*
+(TEMA_N3_MATEMATICA: [Matematica] Fracciones, porcentajes y area de figuras planas | Competencia: Resuelve problemas de cantidad y forma | Desempeno: Calcula fracciones de un total y el area en metros cuadrados.) Tj T*
 ET
+
 endstream
-endobj
-5 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 xref
 0 6
@@ -44,9 +45,10 @@ xref
 0000000009 00000 n 
 0000000058 00000 n 
 0000000115 00000 n 
-0000000229 00000 n 
+0000000241 00000 n 
+0000000338 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-0
+2870
 %%EOF

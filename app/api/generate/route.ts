@@ -20,30 +20,34 @@ function buildDynamicSystemPrompt(
     )
     .join("\n");
 
-  return `Crea una sesión de clase escolar interactiva con UNA SOLA HISTORIA CONTINUA en 3 capítulos ("numero_fase": 1, 2 y 3) sobre "${contexto}" con los niños Illari, Amaru y Qori.
+  return `Crea una sesión de clase escolar interactiva con UNA SOLA HISTORIA CONTINUA en 3 capítulos ("numero_fase": 1, 2 y 3) sobre "${contexto}" protagonizada por los estudiantes Mateo, Valentina y Lucas en su colegio.
+
+IMPORTANTE SOBRE EL TONO E INCLUSIÓN:
+- Usa un contexto escolar moderno, universal, cercano y natural (salón de clases, feria de ciencias, biblioteca, jardín escolar, laboratorio, patio o excursión educativa). Evita clichés o estereotipos folclóricos exagerados.
+- Los prompts de imagen ("prompt_sdxl") deben describir escenas escolares alegres y universales relacionadas con "${contexto}" (por ejemplo: "Modern colorful children storybook illustration of friendly primary school kids conducting science experiments in a bright classroom").
 
 CONTINUIDAD OBLIGATORIA:
-- Capítulo 1: Inicio por la mañana.
-- Capítulo 2: Continuación al mediodía de lo ocurrido en el Capítulo 1.
+- Capítulo 1: Inicio de la actividad por la mañana.
+- Capítulo 2: Continuación al mediodía de lo iniciado en el Capítulo 1.
 - Capítulo 3: Desenlace por la tarde concluyendo la misma historia.
 
 TEMAS ESPECÍFICOS DE CADA NIVEL (¡RESPETA EL ÁREA Y TEMA EXACTO DE CADA NIVEL!):
 ${detalleNiveles}
 
 REGLA CLAVE POR ÁREA:
-- Si el tema de un nivel es de Ciencia y Tecnología, Personal Social, Comunicación u otra área NO matemática, la explicación, ejemplo, pregunta ("instruccion"), las 4 "opciones" y la "respuesta_correcta" DEBEN SER DE ESE TEMA (respuestas en texto, NO de matemática).
+- Si el tema de un nivel es de Ciencia y Tecnología, Personal Social, Comunicación u otra área NO matemática, la explicación, ejemplo, pregunta ("instruccion"), las 4 "opciones" y la "respuesta_correcta" DEBEN SER DE ESE TEMA (respuestas conceptuales en texto, NO de matemática).
 - Si el tema de un nivel es de Matemática, entonces sí incluye cálculo matemático y opciones numéricas.
 - "respuesta_correcta" debe ser idéntica a una de las 4 cadenas dentro de "opciones".
 
 Devuelve SOLO JSON válido con esta estructura:
 {
   "titulo_mision": "${contexto}",
-  "prompt_sdxl_base": "Warm children storybook illustration of ...",
+  "prompt_sdxl_base": "Modern colorful children storybook illustration of ...",
   "fases": [
     {
       "numero_fase": 1,
       "titulo_fase": "Capítulo 1: ...",
-      "prompt_sdxl": "Warm children storybook illustration of ...",
+      "prompt_sdxl": "Modern colorful children storybook illustration of ...",
       "narrativa_fase": "Relato del Capítulo 1...",
       "retos_grados": [
         {
@@ -64,7 +68,7 @@ Devuelve SOLO JSON válido con esta estructura:
     }
   ],
   "narrativa_victoria": "Desenlace final...",
-  "prompt_sdxl_victoria": "Warm children storybook illustration of ..."
+  "prompt_sdxl_victoria": "Modern colorful children storybook illustration of ..."
 }`;
 }
 
@@ -154,7 +158,6 @@ async function generateMissionWithLiveLLM(
 ): Promise<MisionYuyAI | null> {
   const systemPrompt = buildDynamicSystemPrompt(selecciones, contexto);
 
-  // 1. Si hay clave de Google AI Studio activa
   if (apiKey && !apiKey.startsWith("AQ.")) {
     try {
       const response = await fetch(
@@ -189,7 +192,6 @@ async function generateMissionWithLiveLLM(
     }
   }
 
-  // 2. Motor LLM en vivo con reasoning_effort="low" y timeout de 28 segundos para que siempre complete
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 28000);
@@ -205,7 +207,7 @@ async function generateMissionWithLiveLLM(
           {
             role: "system",
             content:
-              "Responde únicamente con JSON válido. Genera preguntas reales del área de cada tema (Ciencia, Personal Social, Comunicación o Matemática).",
+              "Responde únicamente con JSON válido. Genera preguntas reales del área de cada tema (Ciencia, Personal Social, Comunicación o Matemática) en un contexto escolar moderno y universal.",
           },
           { role: "user", content: systemPrompt },
         ],
@@ -243,7 +245,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const tema = (body?.tema || "Aprendizaje integrado").trim();
     const contexto = (
-      body?.contexto || "El tejido cooperativo del puente colgante sobre el río"
+      body?.contexto ||
+      "La feria de ciencias y experimentos de nuestra escuela"
     ).trim();
     const selecciones: SeleccionNivelTema[] =
       Array.isArray(body?.selecciones) && body.selecciones.length > 0
@@ -252,21 +255,22 @@ export async function POST(req: NextRequest) {
             {
               nivel_codigo: "nivel_1",
               nivel_nombre: "Nivel 1 · Ciclo III",
-              tema_titulo: "Las partes de las plantas nativas y su crecimiento",
+              tema_titulo: "Los seres vivos, las plantas y sus partes",
               area_curricular: "Ciencia y Tecnología",
             },
             {
               nivel_codigo: "nivel_2",
               nivel_nombre: "Nivel 2 · Ciclo IV",
-              tema_titulo: "Multiplicación por filas y grupos iguales",
+              tema_titulo:
+                "Multiplicación por grupos iguales y cálculo de perímetros",
               area_curricular: "Matemática",
             },
             {
               nivel_codigo: "nivel_3",
               nivel_nombre: "Nivel 3 · Ciclo V",
               tema_titulo:
-                "Las regiones naturales y pisos ecológicos de los Andes",
-              area_curricular: "Personal Social",
+                "El sistema solar, las fuentes de energía y los ecosistemas",
+              area_curricular: "Ciencia y Tecnología",
             },
           ];
 
@@ -308,8 +312,8 @@ export async function POST(req: NextRequest) {
     });
   } catch {
     const fallback = construirMisionMultinivelContextual(
-      "Saberes de la escuela",
-      "El tejido cooperativo del puente colgante sobre el río"
+      "Ciencia y Matemática",
+      "La feria de ciencias y experimentos de nuestra escuela"
     );
     return NextResponse.json({ mision: fallback, guardado_en_supabase: false });
   }

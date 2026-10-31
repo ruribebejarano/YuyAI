@@ -27,21 +27,21 @@ const NIVELES_BASE = [
   {
     codigo: "nivel_1",
     nombre: "Nivel 1 · Ciclo III",
-    descripcion: "1.° y 2.° grado: Conteo, decenas, sumas y restas",
+    descripcion: "1.° y 2.° grado de Primaria",
     color_hex: "#238564",
     orden: 1,
   },
   {
     codigo: "nivel_2",
     nombre: "Nivel 2 · Ciclo IV",
-    descripcion: "3.° y 4.° grado: Multiplicación, división y perímetros",
+    descripcion: "3.° y 4.° grado de Primaria",
     color_hex: "#2B6CB0",
     orden: 2,
   },
   {
     codigo: "nivel_3",
     nombre: "Nivel 3 · Ciclo V",
-    descripcion: "5.° y 6.° grado: Fracciones, áreas y promedios",
+    descripcion: "5.° y 6.° grado de Primaria",
     color_hex: "#D4653B",
     orden: 3,
   },
@@ -56,6 +56,25 @@ function decodificarTextoPdf(cadena: string): string {
     .trim();
 }
 
+/**
+ * Filtra estrictamente cualquier basura binaria de streams PDF comprimidos
+ */
+function esLineaLegibleHumana(linea: string): boolean {
+  if (!linea || linea.length < 6) return false;
+  if (/^\/Type|^\/Font|^\/Page|^\/Filter|FlateDecode|obj|endobj/i.test(linea)) {
+    return false;
+  }
+  const letrasYEspacios = (
+    linea.match(/[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9\s.,:;()[\]|¿?¡!-]/g) || []
+  ).length;
+  if (letrasYEspacios / linea.length < 0.92) return false;
+
+  const palabrasNormales = linea
+    .split(/\s+/)
+    .filter((w) => /^[a-zA-ZáéíóúÁÉÍÓÚñÑ]{3,}$/.test(w));
+  return palabrasNormales.length >= 2;
+}
+
 function extractReadableLinesFromPdfBuffer(buffer: Buffer): string[] {
   const lineas: string[] = [];
   const rawLatin1 = buffer.toString("latin1");
@@ -67,11 +86,11 @@ function extractReadableLinesFromPdfBuffer(buffer: Buffer): string[] {
     try {
       const streamBytes = Buffer.from(streamMatch[1], "latin1");
       const descomprimido = zlib.inflateSync(streamBytes).toString("latin1");
-      const regexPar = /\(([^()]{3,350})\)/g;
+      const regexPar = /\(([^()]{4,350})\)/g;
       let m: RegExpExecArray | null;
       while ((m = regexPar.exec(descomprimido)) !== null) {
         const limpio = decodificarTextoPdf(m[1]);
-        if (limpio.length >= 4 && /[a-zA-ZáéíóúÁÉÍÓÚ]/.test(limpio)) {
+        if (esLineaLegibleHumana(limpio)) {
           lineas.push(limpio);
         }
       }
@@ -80,16 +99,13 @@ function extractReadableLinesFromPdfBuffer(buffer: Buffer): string[] {
     }
   }
 
-  // 2. Bloques de texto directo en PDF
-  const regexDirecto = /\(([^()]{3,350})\)/g;
+  // 2. Bloques de texto directo en PDF (solo fuera de flujos binarios)
+  const sinStreams = rawLatin1.replace(/stream[\r\n]+[\s\S]*?endstream/g, " ");
+  const regexDirecto = /\(([^()]{4,350})\)/g;
   let match: RegExpExecArray | null;
-  while ((match = regexDirecto.exec(rawLatin1)) !== null) {
+  while ((match = regexDirecto.exec(sinStreams)) !== null) {
     const limpio = decodificarTextoPdf(match[1]);
-    if (
-      limpio.length >= 4 &&
-      /[a-zA-ZáéíóúÁÉÍÓÚ]/.test(limpio) &&
-      !/^\/Type|^\/Font|^\/Page|^\/Filter/i.test(limpio)
-    ) {
+    if (esLineaLegibleHumana(limpio)) {
       lineas.push(limpio);
     }
   }
@@ -97,34 +113,35 @@ function extractReadableLinesFromPdfBuffer(buffer: Buffer): string[] {
   return Array.from(new Set(lineas));
 }
 
-/**
- * Extrae directamente temas estructurados por Nivel si están listados en el PDF
- */
 function parseStructuredLinesFromPdf(
   lineas: string[]
 ): ExtractedCurriculum | null {
   const temasExtraidos: ExtractedCurriculum["temas"] = [];
   let nivelActualCodigo = "nivel_1";
-  let nivelActualNombre = "Nivel 1 · Ciclo III";
 
   for (const linea of lineas) {
-    if (/NIVEL\s*1|CICLO\s*III|1\.er|2\.do/i.test(linea) && !linea.includes("TEMA_")) {
+    if (
+      /NIVEL\s*1|CICLO\s*III|1\.er|2\.do/i.test(linea) &&
+      !linea.includes("TEMA_")
+    ) {
       nivelActualCodigo = "nivel_1";
-      nivelActualNombre = "Nivel 1 · Ciclo III";
       continue;
     }
-    if (/NIVEL\s*2|CICLO\s*IV|3\.er|4\.to/i.test(linea) && !linea.includes("TEMA_")) {
+    if (
+      /NIVEL\s*2|CICLO\s*IV|3\.er|4\.to/i.test(linea) &&
+      !linea.includes("TEMA_")
+    ) {
       nivelActualCodigo = "nivel_2";
-      nivelActualNombre = "Nivel 2 · Ciclo IV";
       continue;
     }
-    if (/NIVEL\s*3|CICLO\s*V|5\.to|6\.to/i.test(linea) && !linea.includes("TEMA_")) {
+    if (
+      /NIVEL\s*3|CICLO\s*V|5\.to|6\.to/i.test(linea) &&
+      !linea.includes("TEMA_")
+    ) {
       nivelActualCodigo = "nivel_3";
-      nivelActualNombre = "Nivel 3 · Ciclo V";
       continue;
     }
 
-    // Formato estructurado con viñeta o TEMA_N1 / [Área]
     const matchTema = linea.match(
       /(?:TEMA_N([123])_[A-Z0-9_]+:\s*)?\[([^\]]+)\]\s*([^|]+)(?:\|\s*Competencia:\s*([^|]+))?(?:\|\s*Desempeno:\s*(.+))?/i
     );
@@ -140,22 +157,20 @@ function parseStructuredLinesFromPdf(
       const areaRaw = matchTema[2].trim();
       const area = areaRaw
         .replace(/Matematica/i, "Matemática")
-        .replace(/Tecnologia/i, "Tecnología");
+        .replace(/Tecnologia/i, "Tecnología")
+        .replace(/Comunicacion/i, "Comunicación");
       const titulo = matchTema[3]
         .trim()
         .replace(/Calculo/g, "Cálculo")
         .replace(/Medicion/g, "Medición")
         .replace(/perimetro/g, "perímetro")
+        .replace(/perimetros/g, "perímetros")
         .replace(/area/g, "área")
-        .replace(/geometricas/g, "geométricas")
-        .replace(/vertices/g, "vértices")
-        .replace(/Organizacion/g, "Organización")
-        .replace(/Conservacion/g, "Conservación")
-        .replace(/agricola/g, "agrícola")
-        .replace(/organicos/g, "orgánicos")
-        .replace(/produccion/g, "producción")
-        .replace(/ecologicos/g, "ecológicos");
-      const comp = (matchTema[4] || "Resuelve problemas de cantidad").trim();
+        .replace(/Comprension/g, "Comprensión")
+        .replace(/Multiplicacion/g, "Multiplicación")
+        .replace(/energia/g, "energía")
+        .replace(/prevencion/g, "prevención");
+      const comp = (matchTema[4] || "Explica el mundo físico").trim();
       const desemp = (
         matchTema[5] || `Desarrolla actividades de ${titulo} en su nivel.`
       ).trim();
@@ -194,14 +209,15 @@ Devuelve solo JSON válido con clave "temas" (arreglo de objetos con: nivel_codi
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7500);
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
 
     const llmRes = await fetch("https://text.pollinations.ai/openai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
-        model: "openai",
+        model: "openai-fast",
+        reasoning_effort: "low",
         messages: [
           {
             role: "system",
@@ -231,7 +247,7 @@ Devuelve solo JSON válido con clave "temas" (arreglo de objetos con: nivel_codi
       }
     }
   } catch {
-    // Fallback a extracción por líneas
+    // Fallback a temas curriculares limpios
   }
 
   return null;
@@ -259,60 +275,53 @@ export async function POST(req: NextRequest) {
       const body = await req.json();
       fileName = body?.nombre_archivo || fileName;
       extractedText = body?.texto || "";
-      lineasExtraidas = extractedText.split("\n");
+      lineasExtraidas = extractedText
+        .split("\n")
+        .filter((l: string) => esLineaLegibleHumana(l));
     }
 
-    // 1. Primero extraer líneas estructuradas del PDF (instantáneo y 100% fiel al documento)
     let resultado = parseStructuredLinesFromPdf(lineasExtraidas);
 
-    // 2. Si es un PDF de texto libre, analizar con el LLM en vivo
     if (!resultado && extractedText.length > 20) {
       resultado = await parsePdfWithLiveLLM(extractedText, fileName);
     }
 
-    // 3. Si aún no hay estructura, construir temas a partir de las oraciones legibles del PDF
     if (!resultado) {
-      const oraciones = lineasExtraidas.filter((l) => l.length >= 12).slice(0, 6);
       resultado = {
         niveles: NIVELES_BASE,
         temas: [
           {
             nivel_codigo: "nivel_1",
             nivel_nombre: "Nivel 1 · Ciclo III",
-            area_curricular: "Matemática",
-            titulo_tema:
-              oraciones[0] || "Conteo de figuras geométricas y lados en objetos",
-            competencia_minedu: "Resuelve problemas de forma y cantidad",
+            area_curricular: "Ciencia y Tecnología",
+            titulo_tema: "Los seres vivos, las plantas y sus partes",
+            competencia_minedu: "Explica el mundo físico",
             desempeno_esperado:
-              "Identifica lados y cantidades en elementos cotidianos del salón.",
+              "Reconoce la función de la raíz, el tallo, las hojas y la flor.",
           },
           {
             nivel_codigo: "nivel_2",
             nivel_nombre: "Nivel 2 · Ciclo IV",
-            area_curricular: "Matemática",
-            titulo_tema:
-              oraciones[1] ||
-              "Cálculo del perímetro de parcelas rectangulares y cuadradas",
-            competencia_minedu: "Resuelve problemas de forma y localización",
+            area_curricular: "Ciencia y Tecnología",
+            titulo_tema: "Los estados del agua y el cuidado del medio ambiente",
+            competencia_minedu: "Explica el mundo físico",
             desempeno_esperado:
-              "Calcula el perímetro sumando los lados de terrenos rectangulares.",
+              "Diferencia los estados líquido, sólido y gaseoso del agua.",
           },
           {
             nivel_codigo: "nivel_3",
             nivel_nombre: "Nivel 3 · Ciclo V",
-            area_curricular: "Matemática",
+            area_curricular: "Ciencia y Tecnología",
             titulo_tema:
-              oraciones[2] ||
-              "Cálculo del área de terrenos rectangulares y porcentajes",
-            competencia_minedu: "Resuelve problemas de forma y cantidad",
+              "El sistema solar, las fuentes de energía y los ecosistemas",
+            competencia_minedu: "Explica el mundo físico",
             desempeno_esperado:
-              "Halla la superficie en metros cuadrados multiplicando base por altura.",
+              "Relaciona los movimientos de la Tierra y la energía solar con la vida.",
           },
         ],
       };
     }
 
-    // Guardar registro del documento en Supabase
     const { data: docInsertado } = await supabase
       .from("documentos_curriculares")
       .insert({
@@ -323,7 +332,6 @@ export async function POST(req: NextRequest) {
       .select("*")
       .single();
 
-    // Asegurar los 3 niveles en Supabase
     const mapaNiveles: Record<string, NivelAulaRow> = {};
     for (const niv of NIVELES_BASE) {
       const { data: nivelGuardado } = await supabase
@@ -347,7 +355,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Guardar los temas extraídos del PDF en Supabase
     const filasTemas = resultado.temas.map((t, index) => ({
       documento_id: docInsertado?.id || null,
       nivel_id: mapaNiveles[t.nivel_codigo]?.id || null,
@@ -356,10 +363,10 @@ export async function POST(req: NextRequest) {
         mapaNiveles[t.nivel_codigo]?.nombre ||
         t.nivel_nombre ||
         `Nivel ${(index % 3) + 1}`,
-      area_curricular: t.area_curricular || "Matemática",
+      area_curricular: t.area_curricular || "Ciencia y Tecnología",
       titulo_tema: t.titulo_tema,
       competencia_minedu:
-        t.competencia_minedu || "Resuelve problemas de cantidad",
+        t.competencia_minedu || "Explica el mundo físico",
       desempeno_esperado: t.desempeno_esperado || "",
       estado: "en_curso",
       orden: index + 10,

@@ -52,28 +52,28 @@ import {
 
 const ESCENARIOS_VISUALES = [
   {
-    id: "puente",
-    emoji: "🌉",
-    titulo: "El Puente de Q'eswachaka",
-    contexto: "El tejido cooperativo del puente colgante sobre el río",
+    id: "ciencias",
+    emoji: "🔬",
+    titulo: "Feria de Ciencias",
+    contexto: "La feria de ciencias y experimentos de nuestra escuela",
   },
   {
-    id: "chacra",
-    emoji: "🥔",
-    titulo: "Cosecha en la Chacra",
-    contexto: "La cosecha comunitaria de papas y maíz en la chacra escolar",
+    id: "jardin",
+    emoji: "🌱",
+    titulo: "Jardín y Vivero Escolar",
+    contexto: "El proyecto de plantas y naturaleza en el jardín de la escuela",
   },
   {
-    id: "feria",
-    emoji: "🦙",
-    titulo: "La Feria de la Plaza",
-    contexto: "La feria dominical y el transporte de canastas con llamas",
+    id: "biblioteca",
+    emoji: "📚",
+    titulo: "Festival de Lectura",
+    contexto: "La organización de la biblioteca y el festival de cuentos",
   },
   {
-    id: "agua",
-    emoji: "💧",
-    titulo: "Los Canales de Riego",
-    contexto: "El recorrido del agua por los canales hacia las parcelas",
+    id: "astronomia",
+    emoji: "🚀",
+    titulo: "Club de Astronomía",
+    contexto: "La exposición del sistema solar y el espacio en el salón",
   },
 ];
 
@@ -93,8 +93,8 @@ export default function MaestroDashboardPage() {
     Record<string, string>
   >({
     nivel_1: "tem-1",
-    nivel_2: "tem-3",
-    nivel_3: "tem-5",
+    nivel_2: "tem-6",
+    nivel_3: "tem-7",
   });
   const [contextoRural, setContextoRural] = useState(
     ESCENARIOS_VISUALES[0].contexto
@@ -182,7 +182,7 @@ export default function MaestroDashboardPage() {
       promptUsar ||
       fase?.prompt_sdxl ||
       misionEstudio.prompt_sdxl_base ||
-      "Warm storybook illustration of Andean rural school children";
+      "Modern colorful storybook illustration of friendly primary school children in classroom";
 
     try {
       const res = await fetch("/api/image", {
@@ -351,8 +351,9 @@ export default function MaestroDashboardPage() {
       if (data.mision) {
         setMisionEstudio(data.mision);
         setFasePreviewIdx(0);
+        localStorage.removeItem("yuyai_mision_activa");
         localStorage.setItem(
-          "yuyai_mision_activa",
+          "yuyai_mision_activa_v3",
           JSON.stringify(data.mision)
         );
       }
@@ -383,14 +384,19 @@ export default function MaestroDashboardPage() {
         return { ...f, retos_grados: nuevosRetos };
       });
       const actualizada = { ...prev, fases: nuevasFases };
-      localStorage.setItem("yuyai_mision_activa", JSON.stringify(actualizada));
+      localStorage.removeItem("yuyai_mision_activa");
+      localStorage.setItem(
+        "yuyai_mision_activa_v3",
+        JSON.stringify(actualizada)
+      );
       return actualizada;
     });
   };
 
   const lanzarMisionAlProyector = () => {
+    localStorage.removeItem("yuyai_mision_activa");
     localStorage.setItem(
-      "yuyai_mision_activa",
+      "yuyai_mision_activa_v3",
       JSON.stringify(misionEstudio)
     );
     router.push("/aula/mision-viva");
@@ -846,7 +852,7 @@ export default function MaestroDashboardPage() {
                                 e.target.value
                               )
                             }
-                            className="w-20 rounded-lg bg-white border border-crema-300 px-2 py-1 text-xs font-bold text-center text-valle-700"
+                            className="w-36 rounded-lg bg-white border border-crema-300 px-2 py-1 text-xs font-bold text-center text-valle-700"
                           />
                         </div>
                       </div>
