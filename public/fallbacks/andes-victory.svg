@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="skyV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#042F2E"/>
+      <stop offset="45%" stop-color="#065F46"/>
+      <stop offset="80%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#FDE68A"/>
+    </linearGradient>
+    <radialGradient id="sunV" cx="0.5" cy="0.45" r="0.4">
+      <stop offset="0%" stop-color="#FEF08A" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="#F59E0B" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#042F2E" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#skyV)"/>
+  <circle cx="960" cy="490" r="680" fill="url(#sunV)"/>
+  <!-- Montañas Esmeralda -->
+  <polygon points="0,740 310,390 640,630 960,320 1290,610 1620,370 1920,660 1920,1080 0,1080" fill="#064E3B" opacity="0.85"/>
+  <polygon points="0,630 610,730 550,1080 0,1080" fill="#1C1410"/>
+  <polygon points="1920,630 1310,730 1370,1080 1920,1080" fill="#1C1410"/>
+  <!-- Puente Inca Reconstruido Firme -->
+  <path d="M 550 670 Q 960 770 1370 670" stroke="#FDE68A" stroke-width="7" fill="none"/>
+  <path d="M 550 730 Q 960 830 1370 730" stroke="#F4A261" stroke-width="16" fill="none"/>
+  <path d="M 550 700 Q 960 800 1370 700" stroke="#10B981" stroke-width="5" fill="none" stroke-dasharray="18 10"/>
+</svg>
