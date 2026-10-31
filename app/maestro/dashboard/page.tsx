@@ -535,7 +535,7 @@ export default function MaestroDashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* COLUMNA IZQUIERDA (5 cols): SUBIR PDF Y ELEGIR TEMAS */}
             <section className="lg:col-span-5 rounded-3xl bg-white border border-crema-300 shadow-sm p-5 space-y-5">
-              <div className="flex items-center justify-between border-b border-crema-200 pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-crema-200 pb-3">
                 <div>
                   <h2 className="text-lg font-bold text-tierra-900">
                     Configurar la Sesión de Hoy
@@ -544,17 +544,28 @@ export default function MaestroDashboardPage() {
                     Sube tu PDF de unidades o elige los temas por nivel
                   </p>
                 </div>
-                <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-terracotta-50 hover:bg-terracotta-100 text-terracotta-700 border border-terracotta-500/30 text-xs font-bold cursor-pointer">
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>{subiendoPdf ? "Leyendo PDF..." : "Subir PDF"}</span>
-                  <input
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    onChange={manejarSubidaPdf}
-                    disabled={subiendoPdf}
-                    className="hidden"
-                  />
-                </label>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="/Unidad_Curricular_MINEDU_Prueba.pdf"
+                    download="Unidad_Curricular_MINEDU_Prueba.pdf"
+                    className="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl bg-crema-100 hover:bg-crema-200 text-tierra-700 border border-crema-300 text-xs font-bold"
+                    title="Descargar PDF de prueba con 9 temas curriculares"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-terracotta-500" />
+                    <span>PDF de Prueba</span>
+                  </a>
+                  <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-terracotta-50 hover:bg-terracotta-100 text-terracotta-700 border border-terracotta-500/30 text-xs font-bold cursor-pointer">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{subiendoPdf ? "Leyendo PDF..." : "Subir PDF"}</span>
+                    <input
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      onChange={manejarSubidaPdf}
+                      disabled={subiendoPdf}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
               </div>
 
               {mensajePdf && (
@@ -864,6 +875,15 @@ export default function MaestroDashboardPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
+                <a
+                  href="/Unidad_Curricular_MINEDU_Prueba.pdf"
+                  download="Unidad_Curricular_MINEDU_Prueba.pdf"
+                  className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-crema-100 hover:bg-crema-200 text-tierra-800 border border-crema-300 font-bold text-sm"
+                >
+                  <FileText className="w-4 h-4 text-terracotta-600" />
+                  <span>Descargar PDF de Prueba</span>
+                </a>
+
                 <label className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-terracotta-500 hover:bg-terracotta-600 text-white font-bold text-sm cursor-pointer shadow-sm">
                   <Upload className="w-4 h-4" />
                   <span>
