@@ -14,6 +14,9 @@ export const FRASES_CARGA_PEDAGOGICAS = [
   "Escuchando el murmullo del río para afinar los desafíos del día...",
 ];
 
+export const MENSAJES_CARGA_HUMANOS = FRASES_CARGA_PEDAGOGICAS;
+
+
 export const NIVELES_INICIALES: NivelAulaRow[] = [
   {
     id: "niv-1",
@@ -275,6 +278,8 @@ export const MISION_PUENTE_INCA: MisionYuyAI = {
   imagen_base_url: "/fallbacks/andes-bg.svg",
   imagen_victoria_url: "/fallbacks/andes-victory.svg",
 };
+
+export const MISION_INICIAL_DEMO = MISION_PUENTE_INCA;
 
 export const ALUMNOS_DEMO: AlumnoRow[] = [
   {

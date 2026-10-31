@@ -23,7 +23,6 @@ export default function MisionVivaPage() {
   const [mision, setMision] = useState<MisionYuyAI>(MISION_INICIAL_DEMO);
   const [faseIndex, setFaseIndex] = useState<number>(0);
 
-  // Estado dinámico por índice de reto dentro de la fase actual (soporta N niveles)
   const [respuestas, setRespuestas] = useState<Record<number, string>>({});
   const [resueltos, setResueltos] = useState<Record<number, boolean>>({});
   const [erroresShake, setErroresShake] = useState<Record<number, number>>({});
@@ -33,14 +32,13 @@ export default function MisionVivaPage() {
 
   const [misionCompletada, setMisionCompletada] = useState(false);
 
-  // Estado de ilustración en vivo desde RunPod SDXL Turbo
   const [bgImageUrl, setBgImageUrl] = useState<string>(
     "/fallbacks/andes-bg.svg"
   );
   const [cargandoImagen, setCargandoImagen] = useState<boolean>(false);
 
-  // telemetría para Supabase
   const erroresTotalesRef = useRef<number>(0);
+  const intentosTotalesRef = useRef<number>(0);
   const inicioTimestampRef = useRef<number>(Date.now());
 
   useEffect(() => {
@@ -75,16 +73,18 @@ export default function MisionVivaPage() {
     }
   }, []);
 
-  // Solicitar ilustración a RunPod SDXL Turbo al cambiar de fase
   useEffect(() => {
     let cancelado = false;
     async function cargarIlustracionEscenario() {
       setCargandoImagen(true);
+      const promptUsar = misionCompletada
+        ? mision.prompt_sdxl_victoria
+        : `${mision.prompt_sdxl_base}, scene phase ${faseActual.numero_fase}`;
       try {
         const res = await fetch("/api/image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: faseActual.prompt_imagen }),
+          body: JSON.stringify({ prompt: promptUsar }),
         });
         const data = await res.json();
         if (!cancelado && data?.imageUrl) {
@@ -101,7 +101,13 @@ export default function MisionVivaPage() {
     return () => {
       cancelado = true;
     };
-  }, [faseIndex, faseActual.prompt_imagen]);
+  }, [
+    faseIndex,
+    misionCompletada,
+    mision.prompt_sdxl_base,
+    mision.prompt_sdxl_victoria,
+    faseActual.numero_fase,
+  ]);
 
   const dispararConfeti = () => {
     try {
@@ -109,7 +115,7 @@ export default function MisionVivaPage() {
         particleCount: 80,
         spread: 70,
         origin: { y: 0.65 },
-        colors: ["#C84B31", "#2A7B52", "#F59E0B", "#2563EB"],
+        colors: ["#D4653B", "#238564", "#F59E0B", "#2B6CB0"],
       });
     } catch {
       // Ignorar si falla canvas
@@ -118,6 +124,7 @@ export default function MisionVivaPage() {
 
   const verificarRespuestaNivel = (idx: number, reto: RetoGrado) => {
     if (resueltos[idx]) return;
+    intentosTotalesRef.current += 1;
 
     const valorLimpio = (respuestas[idx] || "").trim().replace(",", ".");
     const numeroIngresado = Number(valorLimpio);
@@ -129,7 +136,8 @@ export default function MisionVivaPage() {
     ) {
       setResueltos((prev) => ({ ...prev, [idx]: true }));
       setFeedbackError((prev) => ({ ...prev, [idx]: null }));
-      const nombreNivel = reto.nivel_codigo || `${reto.grado}° Grado`;
+      const nombreNivel =
+        reto.nivel_nombre || reto.nivel_codigo || `${reto.grado}° Grado`;
       hablarTexto(
         `¡Muy bien equipo de ${nombreNivel}! La respuesta ${reto.respuesta_correcta} es correcta.`
       );
@@ -156,7 +164,8 @@ export default function MisionVivaPage() {
       setMisionCompletada(true);
       dispararConfeti();
       hablarTexto(
-        "¡Felicitaciones a todos los niveles del aula! Hemos completado juntos la misión de nuestra comunidad."
+        mision.narrativa_victoria ||
+          "¡Felicitaciones a todos los niveles del aula! Hemos completado juntos la misión de nuestra comunidad."
       );
 
       const duracionSegundos = Math.max(
@@ -165,13 +174,16 @@ export default function MisionVivaPage() {
       );
       try {
         await supabase.from("sesiones_aula").insert({
-          mision_id: mision.id?.startsWith("demo-") ? null : mision.id,
-          titulo_mision: mision.titulo,
-          fase_actual: 3,
-          completada: true,
-          puntaje_equipo: 300,
-          errores_totales: erroresTotalesRef.current,
-          tiempo_segundos: duracionSegundos,
+          mision_id: mision.id?.startsWith("default-") ? null : mision.id || null,
+          metricas: {
+            tasa_exito: Math.max(
+              70,
+              100 - erroresTotalesRef.current * 5
+            ),
+            tiempo_promedio_seg: duracionSegundos,
+            intentos_totales: intentosTotalesRef.current,
+            errores_tts_activados: erroresTotalesRef.current,
+          },
         });
       } catch {
         // Silencioso en modo autónomo
@@ -186,23 +198,24 @@ export default function MisionVivaPage() {
     setFeedbackError({});
     setMisionCompletada(false);
     erroresTotalesRef.current = 0;
+    intentosTotalesRef.current = 0;
     inicioTimestampRef.current = Date.now();
   };
 
   const estilosPorIndice = [
     {
-      badge: "bg-valle-100 text-valle-700 border-valle-200",
-      headerBg: "bg-valle-50/80",
+      badge: "bg-valle-100 text-valle-700 border-valle-500/30",
+      headerBg: "bg-valle-50",
       btn: "bg-valle-600 hover:bg-valle-700",
     },
     {
-      badge: "bg-lago-100 text-lago-700 border-lago-200",
-      headerBg: "bg-lago-50/80",
-      btn: "bg-lago-600 hover:bg-lago-700",
+      badge: "bg-lago-100 text-lago-600 border-lago-500/30",
+      headerBg: "bg-lago-50",
+      btn: "bg-lago-600 hover:bg-lago-500",
     },
     {
-      badge: "bg-terracotta-100 text-terracotta-700 border-terracotta-200",
-      headerBg: "bg-terracotta-50/80",
+      badge: "bg-terracotta-100 text-terracotta-700 border-terracotta-500/30",
+      headerBg: "bg-terracotta-50",
       btn: "bg-terracotta-500 hover:bg-terracotta-600",
     },
   ];
@@ -215,17 +228,17 @@ export default function MisionVivaPage() {
           <div className="flex items-center gap-3 min-w-0">
             <Link
               href="/maestro/dashboard"
-              className="px-3.5 py-2 rounded-xl bg-white hover:bg-crema-100 border border-crema-300 text-xs sm:text-sm font-display font-bold text-tierra-800 transition-colors flex items-center gap-1.5 shadow-sm shrink-0"
+              className="px-3.5 py-2 rounded-xl bg-white hover:bg-crema-100 border border-crema-300 text-xs sm:text-sm font-bold text-tierra-800 transition-colors flex items-center gap-1.5 shadow-sm shrink-0"
             >
               <Compass className="w-4 h-4 text-terracotta-500" />
               Cuaderno del Docente
             </Link>
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-wider text-terracotta-600 truncate">
-                {mision.competencia_minedu}
+                Sesión Vivencial Multinivel
               </p>
-              <h1 className="font-display text-base sm:text-lg font-bold text-tierra-900 truncate">
-                {mision.titulo}
+              <h1 className="text-base sm:text-lg font-bold text-tierra-900 truncate">
+                {mision.titulo_mision}
               </h1>
             </div>
           </div>
@@ -237,16 +250,16 @@ export default function MisionVivaPage() {
               const superada = idx < faseIndex || misionCompletada;
               return (
                 <div
-                  key={f.numero}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-display font-bold flex items-center gap-1.5 border transition-all ${
+                  key={f.numero_fase}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
                     activa
                       ? "bg-terracotta-500 text-white border-terracotta-600 shadow-sm"
                       : superada
-                      ? "bg-valle-100 text-valle-700 border-valle-200"
+                      ? "bg-valle-100 text-valle-700 border-valle-500/30"
                       : "bg-white text-tierra-600 border-crema-300"
                   }`}
                 >
-                  <span>Fase {f.numero}</span>
+                  <span>Fase {f.numero_fase}</span>
                   {superada && <CheckCircle2 className="w-3.5 h-3.5" />}
                 </div>
               );
@@ -258,54 +271,52 @@ export default function MisionVivaPage() {
       {/* Contenido Principal Responsivo (Cero Desbordes) */}
       <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-5 space-y-6 flex-1">
         {/* Banner Escenario Ilustrado (RunPod SDXL Turbo + Relato Comunitario) */}
-        <section className="relative rounded-3xl overflow-hidden border-2 border-crema-300 shadow-card bg-tierra-900">
+        <section className="relative rounded-3xl overflow-hidden border-2 border-crema-300 shadow-sm bg-tierra-900">
           <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
-            {/* Imagen de Escenario generada en vivo con Ken Burns suave */}
             <div className="lg:col-span-5 relative min-h-[220px] sm:min-h-[260px] overflow-hidden bg-tierra-800">
               <img
                 src={bgImageUrl}
-                alt={faseActual.titulo_fase}
+                alt={`Escenario Fase ${faseActual.numero_fase}`}
                 onError={() => setBgImageUrl("/fallbacks/andes-bg.svg")}
-                className="w-full h-full object-cover animate-ken-burns"
+                className="w-full h-full object-cover animate-kenburns"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-tierra-900/70 via-transparent to-transparent lg:bg-gradient-to-r lg:from-transparent lg:to-tierra-900/80" />
+              <div className="absolute inset-0 bg-gradient-to-t from-tierra-900/60 via-transparent to-transparent" />
               <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-crema-50/95 text-tierra-900 shadow-sm">
                   <Sparkles className="w-3.5 h-3.5 text-terracotta-500" />
                   {cargandoImagen
                     ? "Pintando los colores de nuestra tierra..."
-                    : `Escenario Fase ${faseActual.numero}`}
+                    : `Escenario Fase ${faseActual.numero_fase}`}
                 </span>
               </div>
             </div>
 
-            {/* Relato Vivo para toda el aula */}
             <div className="lg:col-span-7 p-5 sm:p-7 bg-crema-50 flex flex-col justify-between gap-4">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-terracotta-100 text-terracotta-700 border border-terracotta-200">
-                    Fase {faseActual.numero} de {mision.fases.length} ·{" "}
-                    {faseActual.titulo_fase}
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-terracotta-100 text-terracotta-700 border border-terracotta-500/30">
+                    Fase {faseActual.numero_fase} de {mision.fases.length}
                   </span>
 
                   <button
                     type="button"
-                    onClick={() => hablarTexto(faseActual.narrativa)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white hover:bg-crema-100 text-tierra-800 border border-crema-300 text-xs font-display font-bold transition-colors shadow-sm cursor-pointer"
+                    onClick={() => hablarTexto(faseActual.narrativa_fase)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white hover:bg-crema-100 text-tierra-800 border border-crema-300 text-xs font-bold transition-colors shadow-sm cursor-pointer"
                   >
                     <Volume2 className="w-4 h-4 text-terracotta-500" />
                     Escuchar Relato en Voz Alta
                   </button>
                 </div>
 
-                <p className="font-display text-lg sm:text-xl md:text-2xl font-semibold text-tierra-900 leading-snug break-words pt-1">
-                  “{faseActual.narrativa}”
+                <p className="text-lg sm:text-xl md:text-2xl font-semibold text-tierra-900 leading-snug break-words pt-1">
+                  “{faseActual.narrativa_fase}”
                 </p>
               </div>
 
               <div className="pt-2 border-t border-crema-200 flex flex-wrap items-center justify-between gap-2 text-xs text-tierra-600">
                 <span>
-                  Cada <strong>Nivel del Aula</strong> resuelve su propio reto para que toda la comunidad avance junta.
+                  Cada <strong>Nivel del Aula</strong> resuelve su propio reto
+                  para que toda la comunidad avance junta.
                 </span>
                 <span className="font-bold text-valle-700">
                   {Object.values(resueltos).filter(Boolean).length} de{" "}
@@ -334,20 +345,20 @@ export default function MisionVivaPage() {
                 const mensajePista = feedbackError[idx] || null;
                 const est = estilosPorIndice[idx % estilosPorIndice.length];
                 const etiquetaNivel =
-                  reto.nivel_codigo || `${reto.grado}° Grado`;
-                const subtituloNivel =
-                  reto.nivel_nombre || `Equipo de ${reto.grado}° Grado`;
+                  reto.nivel_nombre ||
+                  reto.nivel_codigo ||
+                  `Nivel ${reto.grado || idx + 1}`;
 
                 return (
                   <motion.div
-                    key={`${faseActual.numero}-${idx}-${numErrores}`}
+                    key={`${faseActual.numero_fase}-${idx}-${numErrores}`}
                     animate={
                       numErrores > 0 && !estaResuelto
                         ? { x: [0, -10, 10, -8, 8, -4, 4, 0] }
                         : { x: 0 }
                     }
                     transition={{ duration: 0.45 }}
-                    className={`rounded-3xl bg-white border-2 shadow-card flex flex-col justify-between overflow-hidden transition-all min-w-0 ${
+                    className={`rounded-3xl bg-white border-2 shadow-sm flex flex-col justify-between overflow-hidden transition-all min-w-0 ${
                       estaResuelto
                         ? "border-valle-500 ring-2 ring-valle-500/20"
                         : mensajePista
@@ -355,49 +366,43 @@ export default function MisionVivaPage() {
                         : "border-crema-300"
                     }`}
                   >
-                    {/* Cabecera del Nivel y su Tema Curricular */}
                     <div>
                       <div
                         className={`p-4 sm:p-5 border-b border-crema-200 ${est.headerBg}`}
                       >
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <span
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-display font-bold border ${est.badge}`}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${est.badge}`}
                           >
-                            <Layers className="w-3.5 h-3.5" />
-                            {etiquetaNivel}
+                            <Layers className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{etiquetaNivel}</span>
                           </span>
 
                           <button
                             type="button"
-                            onClick={() => hablarTexto(reto.pregunta)}
-                            className="p-2 rounded-xl bg-white hover:bg-crema-100 text-tierra-700 border border-crema-300 transition-colors cursor-pointer"
+                            onClick={() => hablarTexto(reto.instruccion)}
+                            className="p-2 rounded-xl bg-white hover:bg-crema-100 text-tierra-700 border border-crema-300 transition-colors cursor-pointer shrink-0"
                             title="Escuchar pregunta del nivel"
                           >
                             <Volume2 className="w-4 h-4 text-terracotta-500" />
                           </button>
                         </div>
 
-                        <p className="text-xs font-bold text-tierra-700 break-words">
-                          {subtituloNivel}
-                        </p>
                         {reto.tema_curricular && (
-                          <p className="text-xs text-tierra-600 mt-0.5 flex items-center gap-1 break-words">
+                          <p className="text-xs text-tierra-700 mt-1 flex items-center gap-1.5 break-words font-medium">
                             <BookOpen className="w-3.5 h-3.5 text-terracotta-500 shrink-0" />
-                            <span>Tema: {reto.tema_curricular}</span>
+                            <span>{reto.tema_curricular}</span>
                           </p>
                         )}
                       </div>
 
-                      {/* Pregunta de alto contraste para niños de primaria */}
                       <div className="p-4 sm:p-5">
-                        <p className="font-display text-base sm:text-lg font-bold text-tierra-900 leading-relaxed break-words">
-                          {reto.pregunta}
+                        <p className="text-base sm:text-lg font-bold text-tierra-900 leading-relaxed break-words">
+                          {reto.instruccion}
                         </p>
                       </div>
                     </div>
 
-                    {/* Zona de Respuesta o Mensaje de Nivel Completado */}
                     <div className="p-4 sm:p-5 pt-0 space-y-3">
                       <AnimatePresence mode="wait">
                         {mensajePista && !estaResuelto && (
@@ -405,7 +410,7 @@ export default function MisionVivaPage() {
                             initial={{ opacity: 0, y: 4 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0 }}
-                            className="p-3.5 rounded-2xl bg-terracotta-50 border border-terracotta-200 text-terracotta-700 text-xs sm:text-sm font-medium flex items-start gap-2.5"
+                            className="p-3.5 rounded-2xl bg-terracotta-50 border border-terracotta-500/30 text-terracotta-700 text-xs sm:text-sm font-medium flex items-start gap-2.5"
                           >
                             <Volume2 className="w-4 h-4 text-terracotta-600 shrink-0 mt-0.5" />
                             <span className="break-words">{mensajePista}</span>
@@ -414,19 +419,16 @@ export default function MisionVivaPage() {
                       </AnimatePresence>
 
                       {estaResuelto ? (
-                        <div className="p-4 rounded-2xl bg-valle-50 border border-valle-200 flex items-center justify-between">
+                        <div className="p-4 rounded-2xl bg-valle-50 border border-valle-500/30 flex items-center justify-between">
                           <div className="flex items-center gap-2.5">
                             <CheckCircle2 className="w-6 h-6 text-valle-600 shrink-0" />
                             <div>
-                              <p className="font-display font-bold text-sm text-valle-700">
-                                ¡Reto de {etiquetaNivel} superado!
+                              <p className="font-bold text-sm text-valle-700">
+                                ¡Reto superado!
                               </p>
                               <p className="text-xs text-tierra-600">
                                 Respuesta correcta:{" "}
-                                <strong>
-                                  {reto.respuesta_correcta}{" "}
-                                  {reto.unidad_respuesta || ""}
-                                </strong>
+                                <strong>{reto.respuesta_correcta}</strong>
                               </p>
                             </div>
                           </div>
@@ -449,12 +451,12 @@ export default function MisionVivaPage() {
                               }
                             }}
                             placeholder="Escribe el número..."
-                            className="flex-1 min-w-0 rounded-2xl bg-crema-50 border-2 border-crema-300 px-4 py-3 text-xl font-display font-bold text-tierra-900 placeholder:text-tierra-600/50 focus:outline-none focus:border-terracotta-500"
+                            className="flex-1 min-w-0 rounded-2xl bg-crema-50 border-2 border-crema-300 px-4 py-3 text-xl font-bold text-tierra-900 placeholder:text-tierra-600/50 focus:outline-none focus:border-terracotta-500"
                           />
                           <button
                             type="button"
                             onClick={() => verificarRespuestaNivel(idx, reto)}
-                            className={`px-5 py-3.5 rounded-2xl text-white font-display font-bold text-sm shadow-sm transition-all cursor-pointer shrink-0 ${est.btn}`}
+                            className={`px-5 py-3.5 rounded-2xl text-white font-bold text-sm shadow-sm transition-all cursor-pointer shrink-0 ${est.btn}`}
                           >
                             Comprobar
                           </button>
@@ -466,7 +468,6 @@ export default function MisionVivaPage() {
               })}
             </div>
 
-            {/* Botón Cooperativo cuando todos los niveles resolvieron su reto */}
             {todosNivelesResueltos && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -476,7 +477,7 @@ export default function MisionVivaPage() {
                 <button
                   type="button"
                   onClick={avanzarSiguienteFase}
-                  className="px-8 py-4 rounded-2xl bg-valle-600 hover:bg-valle-700 text-white font-display font-bold text-base sm:text-lg shadow-warm flex items-center gap-3 transition-all cursor-pointer"
+                  className="px-8 py-4 rounded-2xl bg-valle-600 hover:bg-valle-700 text-white font-bold text-base sm:text-lg shadow-md flex items-center gap-3 transition-all cursor-pointer"
                 >
                   <span>
                     {faseIndex < mision.fases.length - 1
@@ -489,13 +490,12 @@ export default function MisionVivaPage() {
             )}
           </section>
         ) : (
-          /* Pantalla de Celebración Comunitaria al completar las 3 fases */
           <motion.section
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="max-w-2xl mx-auto rounded-3xl bg-white border-2 border-valle-500 p-6 sm:p-8 text-center shadow-warm space-y-5"
+            className="max-w-2xl mx-auto rounded-3xl bg-white border-2 border-valle-500 p-6 sm:p-8 text-center shadow-md space-y-5"
           >
-            <div className="w-16 h-16 rounded-2xl bg-maiz-100 border border-maiz-300 flex items-center justify-center mx-auto text-terracotta-600">
+            <div className="w-16 h-16 rounded-2xl bg-terracotta-50 border border-terracotta-500/30 flex items-center justify-center mx-auto text-terracotta-600">
               <Award className="w-9 h-9" />
             </div>
 
@@ -503,13 +503,12 @@ export default function MisionVivaPage() {
               <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-valle-100 text-valle-700">
                 ¡Ayni Pedagógico Cumplido!
               </span>
-              <h2 className="font-display text-2xl sm:text-3xl font-bold text-tierra-900">
+              <h2 className="text-2xl sm:text-3xl font-bold text-tierra-900">
                 ¡Toda el Aula Completó la Misión!
               </h2>
               <p className="text-sm sm:text-base text-tierra-700">
-                Cada nivel aportó sus conocimientos en{" "}
-                <strong>{mision.titulo}</strong> y el progreso de la sesión ya
-                quedó registrado en el cuaderno del docente.
+                {mision.narrativa_victoria ||
+                  `Cada nivel aportó sus conocimientos en ${mision.titulo_mision} y el progreso de la sesión ya quedó registrado en el cuaderno del docente.`}
               </p>
             </div>
 
@@ -517,14 +516,14 @@ export default function MisionVivaPage() {
               <button
                 type="button"
                 onClick={reiniciarMision}
-                className="px-5 py-3 rounded-2xl bg-crema-100 hover:bg-crema-200 text-tierra-800 border border-crema-300 font-display font-bold text-sm flex items-center gap-2 transition-colors cursor-pointer"
+                className="px-5 py-3 rounded-2xl bg-crema-100 hover:bg-crema-200 text-tierra-800 border border-crema-300 font-bold text-sm flex items-center gap-2 transition-colors cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" />
                 Repetir esta Misión
               </button>
               <Link
                 href="/maestro/dashboard"
-                className="px-6 py-3 rounded-2xl bg-terracotta-500 hover:bg-terracotta-600 text-white font-display font-bold text-sm shadow-sm transition-colors"
+                className="px-6 py-3 rounded-2xl bg-terracotta-500 hover:bg-terracotta-600 text-white font-bold text-sm shadow-sm transition-colors"
               >
                 Volver al Cuaderno del Docente
               </Link>
