@@ -26,11 +26,18 @@ import {
 import { MisionYuyAI, RetoGrado } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 
+function normalizarTextoComparacion(str: string): string {
+  return String(str || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 export default function MisionVivaPage() {
   const [mision, setMision] = useState<MisionYuyAI>(MISION_INICIAL_DEMO);
   const [faseIndex, setFaseIndex] = useState<number>(0);
 
-  // Modo inmersivo paso a paso: primero "historia" (cuento + mini-teoría) y luego "preguntas"
   const [pasoEtapa, setPasoEtapa] = useState<"historia" | "preguntas">(
     "historia"
   );
@@ -44,7 +51,6 @@ export default function MisionVivaPage() {
 
   const [misionCompletada, setMisionCompletada] = useState(false);
 
-  // Lienzo generado en el momento con RunPod
   const [bgImageUrl, setBgImageUrl] = useState<string>(
     "/fallbacks/andes-bg.svg"
   );
@@ -87,10 +93,10 @@ export default function MisionVivaPage() {
                 ejemplo_corto:
                   r.ejemplo_corto ||
                   retosBase[rIdx % retosBase.length].ejemplo_corto,
-                opciones:
-                  Array.isArray(r.opciones) && r.opciones.length >= 3
-                    ? r.opciones
-                    : generarOpcionesParaRespuesta(r.respuesta_correcta),
+                opciones: generarOpcionesParaRespuesta(
+                  r.respuesta_correcta,
+                  r.opciones
+                ),
               })),
             };
           });
@@ -177,6 +183,7 @@ export default function MisionVivaPage() {
     }
   };
 
+  // Soporta respuestas de texto (Ciencia, Personal Social, Comunicación) Y numéricas (Matemática)
   const verificarValorNivel = (
     idx: number,
     reto: RetoGrado,
@@ -186,14 +193,23 @@ export default function MisionVivaPage() {
     intentosTotalesRef.current += 1;
 
     setRespuestas((prev) => ({ ...prev, [idx]: valorProbar }));
-    const valorLimpio = valorProbar.trim().replace(",", ".");
-    const numeroIngresado = Number(valorLimpio);
+    const ingresadoNorm = normalizarTextoComparacion(valorProbar);
+    const esperadoNorm = normalizarTextoComparacion(reto.respuesta_correcta);
 
-    if (
-      valorLimpio !== "" &&
-      !Number.isNaN(numeroIngresado) &&
-      Math.abs(numeroIngresado - Number(reto.respuesta_correcta)) < 0.01
-    ) {
+    const numIngresado = Number(valorProbar.trim().replace(",", "."));
+    const numEsperado = Number(
+      String(reto.respuesta_correcta).trim().replace(",", ".")
+    );
+
+    const coincideTexto =
+      ingresadoNorm !== "" && ingresadoNorm === esperadoNorm;
+    const coincideNumero =
+      valorProbar.trim() !== "" &&
+      !Number.isNaN(numIngresado) &&
+      !Number.isNaN(numEsperado) &&
+      Math.abs(numIngresado - numEsperado) < 0.01;
+
+    if (coincideTexto || coincideNumero) {
       setResueltos((prev) => ({ ...prev, [idx]: true }));
       setFeedbackError((prev) => ({ ...prev, [idx]: null }));
       const nombreNivel = reto.nivel_nombre || `Nivel ${idx + 1}`;
@@ -305,7 +321,6 @@ export default function MisionVivaPage() {
             </h1>
           </div>
 
-          {/* Capítulos de la sesión */}
           <div className="flex items-center gap-2">
             {mision.fases.map((f, idx) => {
               const activa = idx === faseIndex && !misionCompletada;
@@ -338,7 +353,6 @@ export default function MisionVivaPage() {
             })}
           </div>
 
-          {/* Conmutador claro entre Paso 1 (Historia y Teoría) y Paso 2 (Preguntas) */}
           {!misionCompletada && (
             <div className="flex items-center bg-crema-200/80 p-1 rounded-xl border border-crema-300">
               <button
@@ -372,10 +386,8 @@ export default function MisionVivaPage() {
         </div>
       </header>
 
-      {/* CONTENIDO PRINCIPAL EN UNA SOLA PANTALLA */}
       <main className="flex-1 max-w-[1550px] w-full mx-auto px-4 sm:px-6 py-3 min-h-0 flex flex-col">
         {misionCompletada ? (
-          /* PANTALLA DE CIERRE DE LA CLASE */
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -422,7 +434,6 @@ export default function MisionVivaPage() {
             animate={{ opacity: 1, x: 0 }}
             className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-0 overflow-y-auto lg:overflow-hidden"
           >
-            {/* Izquierda (5 cols): Ilustración Grande Generada en el Momento */}
             <section className="lg:col-span-5 rounded-3xl bg-white border-2 border-crema-300 shadow-sm overflow-hidden flex flex-col justify-between min-h-0">
               <div className="relative flex-1 min-h-[240px] bg-tierra-900 overflow-hidden">
                 <img
@@ -472,7 +483,6 @@ export default function MisionVivaPage() {
                 </div>
               </div>
 
-              {/* Barra inferior para dibujar cualquier escena en vivo con los niños */}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -485,7 +495,7 @@ export default function MisionVivaPage() {
                   type="text"
                   value={promptEscenaExtra}
                   onChange={(e) => setPromptEscenaExtra(e.target.value)}
-                  placeholder="¿Qué quieres dibujar en la escena? (ej: niños contando papas junto al río)"
+                  placeholder="¿Qué quieres dibujar en la escena? (ej: niños observando plantas y montañas)"
                   className="flex-1 min-w-0 rounded-xl bg-white border border-crema-300 px-3 py-2 text-xs text-tierra-900 focus:outline-none focus:border-terracotta-500"
                 />
                 <button
@@ -499,9 +509,7 @@ export default function MisionVivaPage() {
               </form>
             </section>
 
-            {/* Derecha (7 cols): 1. Relato del Cuento -> 2. Explicación Corta por Nivel -> 3. Botón a Preguntas */}
             <section className="lg:col-span-7 flex flex-col justify-between gap-3 min-h-0">
-              {/* 1. Tarjeta del Relato */}
               <div className="rounded-2xl bg-white border-2 border-crema-300 p-4 shadow-sm shrink-0">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
                   <span className="text-xs font-bold uppercase tracking-wider text-terracotta-600 flex items-center gap-1.5">
@@ -522,15 +530,11 @@ export default function MisionVivaPage() {
                 </p>
               </div>
 
-              {/* 2. Mini-Teoría / Explicación Corta para cada Nivel antes de las preguntas */}
               <div className="flex-1 flex flex-col justify-between gap-2.5 min-h-0">
                 <div className="flex items-center justify-between px-1 shrink-0">
                   <span className="text-xs font-bold uppercase tracking-wider text-valle-700 flex items-center gap-1.5">
                     <Lightbulb className="w-4 h-4 text-valle-600" />
-                    Parte 2 · Explicación Rápida del Tema para cada Nivel
-                  </span>
-                  <span className="text-xs text-tierra-600">
-                    Revisen el ejemplo antes de pasar a las preguntas
+                    Parte 2 · Explicación del Tema para cada Nivel
                   </span>
                 </div>
 
@@ -552,6 +556,11 @@ export default function MisionVivaPage() {
                             >
                               {etiquetaNivel}
                             </span>
+                            {reto.area_curricular && (
+                              <span className="text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-crema-100 text-tierra-700 shrink-0">
+                                {reto.area_curricular}
+                              </span>
+                            )}
                             <span className="text-xs font-bold text-tierra-800 truncate">
                               {reto.tema_curricular}
                             </span>
@@ -573,8 +582,7 @@ export default function MisionVivaPage() {
                         </div>
 
                         <p className="text-xs sm:text-sm text-tierra-800 my-1 leading-snug">
-                          {reto.explicacion_previa ||
-                            "Observa los datos del problema y aplica la operación paso a paso."}
+                          {reto.explicacion_previa}
                         </p>
 
                         {reto.ejemplo_corto && (
@@ -590,7 +598,6 @@ export default function MisionVivaPage() {
                 </div>
               </div>
 
-              {/* 3. Botón Grande para pasar a las Preguntas */}
               <button
                 type="button"
                 onClick={() => setPasoEtapa("preguntas")}
@@ -606,7 +613,7 @@ export default function MisionVivaPage() {
           </motion.div>
         ) : (
           /* =====================================================================
-             PASO 2 DE LA ETAPA: LAS PREGUNTAS POR NIVEL (DESPEJADO Y CLARO)
+             PASO 2 DE LA ETAPA: LAS PREGUNTAS POR NIVEL (CIENCIA, SOCIAL, COMUNICACIÓN O MATEMÁTICA)
           ===================================================================== */
           <motion.div
             key={`preguntas-fase-${faseIndex}`}
@@ -614,7 +621,6 @@ export default function MisionVivaPage() {
             animate={{ opacity: 1, x: 0 }}
             className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-0 overflow-y-auto lg:overflow-hidden"
           >
-            {/* Izquierda (4 cols): Mini-Escenario + Progreso de los 3 Niveles + Botón Volver a Explicación */}
             <section className="lg:col-span-4 rounded-3xl bg-white border-2 border-crema-300 shadow-sm overflow-hidden flex flex-col justify-between min-h-0">
               <div className="relative flex-1 min-h-[180px] bg-tierra-900 overflow-hidden">
                 <img
@@ -626,7 +632,7 @@ export default function MisionVivaPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-tierra-900/85 via-transparent to-transparent" />
                 <div className="absolute bottom-3 left-3.5 right-3.5">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-crema-200">
-                    Capítulo {faseActual.numero_fase} · En Práctica
+                    Capítulo {faseActual.numero_fase} · Preguntas por Nivel
                   </span>
                   <h3 className="text-base font-bold text-white">
                     {faseActual.titulo_fase}
@@ -677,7 +683,6 @@ export default function MisionVivaPage() {
               </div>
             </section>
 
-            {/* Derecha (8 cols): Las 3 Preguntas por Nivel */}
             <section className="lg:col-span-8 flex flex-col justify-between gap-2.5 min-h-0">
               {todosNivelesResueltos && (
                 <motion.div
@@ -686,7 +691,7 @@ export default function MisionVivaPage() {
                   className="shrink-0 p-3 rounded-2xl bg-valle-600 text-white flex items-center justify-between gap-3 shadow-md"
                 >
                   <span className="text-sm font-bold">
-                    🎉 ¡Los 3 niveles resolvieron sus ejercicios de este capítulo!
+                    🎉 ¡Los 3 niveles respondieron correctamente este capítulo!
                   </span>
                   <button
                     type="button"
@@ -711,10 +716,15 @@ export default function MisionVivaPage() {
                   const est = estilosNivel[idx % estilosNivel.length];
                   const etiquetaNivel =
                     reto.nivel_nombre || est.nombreCorto;
-                  const opciones =
-                    Array.isArray(reto.opciones) && reto.opciones.length >= 3
-                      ? reto.opciones
-                      : generarOpcionesParaRespuesta(reto.respuesta_correcta);
+                  const opciones = generarOpcionesParaRespuesta(
+                    reto.respuesta_correcta,
+                    reto.opciones
+                  );
+                  const esNumerica = !Number.isNaN(
+                    Number(
+                      String(reto.respuesta_correcta).trim().replace(",", ".")
+                    )
+                  );
 
                   return (
                     <motion.div
@@ -736,10 +746,15 @@ export default function MisionVivaPage() {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${est.badge}`}
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-bold border shrink-0 ${est.badge}`}
                           >
                             {etiquetaNivel}
                           </span>
+                          {reto.area_curricular && (
+                            <span className="text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-crema-100 text-tierra-700 shrink-0">
+                              {reto.area_curricular}
+                            </span>
+                          )}
                           <span className="text-xs text-tierra-600 truncate">
                             {reto.tema_curricular}
                           </span>
@@ -760,7 +775,7 @@ export default function MisionVivaPage() {
                             className="px-2.5 py-1 rounded-lg bg-crema-100 hover:bg-crema-200 text-tierra-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
                           >
                             <HelpCircle className="w-3.5 h-3.5 text-terracotta-500" />
-                            <span>Ver Ejemplo</span>
+                            <span>Pista</span>
                           </button>
                           <button
                             type="button"
@@ -796,16 +811,13 @@ export default function MisionVivaPage() {
                           <div className="flex items-center gap-2">
                             <CheckCircle2 className="w-5 h-5 text-valle-600 shrink-0" />
                             <span className="font-bold text-xs sm:text-sm text-valle-700">
-                              ¡Respuesta correcta: {reto.respuesta_correcta}!
+                              ¡Correcto: {reto.respuesta_correcta}!
                             </span>
                           </div>
                         </div>
                       ) : (
                         <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-bold text-tierra-600 mr-1">
-                              Opciones:
-                            </span>
+                          <div className="flex items-center gap-1.5 flex-wrap flex-1">
                             {opciones.map((op) => (
                               <button
                                 key={op}
@@ -813,50 +825,52 @@ export default function MisionVivaPage() {
                                 onClick={() =>
                                   verificarValorNivel(idx, reto, op)
                                 }
-                                className={`min-w-[48px] px-3.5 py-1.5 rounded-xl bg-crema-50 border-2 border-crema-300 font-bold text-sm text-tierra-900 transition-all cursor-pointer shadow-sm active:scale-95 ${est.chipHover}`}
+                                className={`px-3 py-1.5 rounded-xl bg-crema-50 border-2 border-crema-300 font-bold text-xs sm:text-sm text-tierra-900 text-left transition-all cursor-pointer shadow-sm active:scale-95 ${est.chipHover}`}
                               >
                                 {op}
                               </button>
                             ))}
                           </div>
 
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="number"
-                              inputMode="numeric"
-                              value={respuestas[idx] || ""}
-                              onChange={(e) =>
-                                setRespuestas((prev) => ({
-                                  ...prev,
-                                  [idx]: e.target.value,
-                                }))
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
+                          {esNumerica && (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                value={respuestas[idx] || ""}
+                                onChange={(e) =>
+                                  setRespuestas((prev) => ({
+                                    ...prev,
+                                    [idx]: e.target.value,
+                                  }))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    verificarValorNivel(
+                                      idx,
+                                      reto,
+                                      respuestas[idx] || ""
+                                    );
+                                  }
+                                }}
+                                placeholder="N.°"
+                                className="w-20 rounded-xl bg-crema-50 border-2 border-crema-300 px-2.5 py-1 text-sm font-bold text-tierra-900 focus:outline-none focus:border-terracotta-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
                                   verificarValorNivel(
                                     idx,
                                     reto,
                                     respuestas[idx] || ""
-                                  );
+                                  )
                                 }
-                              }}
-                              placeholder="Respuesta"
-                              className="w-24 rounded-xl bg-crema-50 border-2 border-crema-300 px-2.5 py-1 text-sm font-bold text-tierra-900 focus:outline-none focus:border-terracotta-500"
-                            />
-                            <button
-                              type="button"
-                              onClick={() =>
-                                verificarValorNivel(
-                                  idx,
-                                  reto,
-                                  respuestas[idx] || ""
-                                )
-                              }
-                              className={`px-3.5 py-1.5 rounded-xl text-white font-bold text-xs shadow-sm transition-all cursor-pointer ${est.btn}`}
-                            >
-                              Comprobar
-                            </button>
-                          </div>
+                                className={`px-3 py-1.5 rounded-xl text-white font-bold text-xs shadow-sm transition-all cursor-pointer ${est.btn}`}
+                              >
+                                Comprobar
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </motion.div>

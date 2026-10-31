@@ -16,31 +16,26 @@ function buildDynamicSystemPrompt(
   const detalleNiveles = selecciones
     .map(
       (s, idx) =>
-        `- Nivel ${idx + 1}: nivel_codigo="${s.nivel_codigo}", nivel_nombre="${s.nivel_nombre}", area_curricular="${s.area_curricular || "Matemática"}", tema_curricular="${s.tema_titulo}"`
+        `- Nivel ${idx + 1}: nivel_codigo="${s.nivel_codigo}", nivel_nombre="${s.nivel_nombre}", area_curricular="${s.area_curricular || "General"}", tema_curricular="${s.tema_titulo}"`
     )
     .join("\n");
 
-  return `Eres un docente de primaria experto en narración escolar.
-Debes crear UNA SOLA HISTORIA CONTINUA dividida en 3 capítulos conectados ("numero_fase": 1, 2 y 3) sobre: "${contexto}".
-Los protagonistas en los 3 capítulos son los niños Illari, Amaru y Qori junto a su maestro.
+  return `Crea una sesión de clase escolar interactiva con UNA SOLA HISTORIA CONTINUA en 3 capítulos ("numero_fase": 1, 2 y 3) sobre "${contexto}" con los niños Illari, Amaru y Qori.
 
-REGLA DE CONTINUIDAD DE LA HISTORIA (MUY IMPORTANTE):
-- Capítulo 1 ("numero_fase": 1): Es el INICIO por la mañana. Illari, Amaru y Qori comienzan "${contexto}" y reúnen los primeros materiales.
-- Capítulo 2 ("numero_fase": 2): Es la CONTINUACIÓN DIRECTA al mediodía. Debe mencionar lo que hicieron en el Capítulo 1 y presentar el reto intermedio de la misma historia.
-- Capítulo 3 ("numero_fase": 3): Es el DESENLACE por la tarde. Concluye lo trabajado en el Capítulo 2 para terminar "${contexto}".
+CONTINUIDAD OBLIGATORIA:
+- Capítulo 1: Inicio por la mañana.
+- Capítulo 2: Continuación al mediodía de lo ocurrido en el Capítulo 1.
+- Capítulo 3: Desenlace por la tarde concluyendo la misma historia.
 
-NIVELES DEL AULA Y EL TEMA QUE TRABAJA CADA UNO EN LOS 3 CAPÍTULOS:
+TEMAS ESPECÍFICOS DE CADA NIVEL (¡RESPETA EL ÁREA Y TEMA EXACTO DE CADA NIVEL!):
 ${detalleNiveles}
 
-En cada capítulo, "retos_grados" debe tener exactamente ${selecciones.length} objetos (uno para cada nivel) con:
-- "explicacion_previa": Explicación teórica breve (1 a 2 oraciones) del tema de ese nivel.
-- "ejemplo_corto": Ejemplo numérico resuelto en 1 línea.
-- "instruccion": Problema conectado con lo que ocurre en ese capítulo de la historia.
-- "respuesta_correcta": Solo el número final en texto (ej: "24").
-- "opciones": 4 números en texto que incluyan la respuesta correcta.
-- "feedback_error": Pista paso a paso.
+REGLA CLAVE POR ÁREA:
+- Si el tema de un nivel es de Ciencia y Tecnología, Personal Social, Comunicación u otra área NO matemática, la explicación, ejemplo, pregunta ("instruccion"), las 4 "opciones" y la "respuesta_correcta" DEBEN SER DE ESE TEMA (respuestas en texto, NO de matemática).
+- Si el tema de un nivel es de Matemática, entonces sí incluye cálculo matemático y opciones numéricas.
+- "respuesta_correcta" debe ser idéntica a una de las 4 cadenas dentro de "opciones".
 
-Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:
+Devuelve SOLO JSON válido con esta estructura:
 {
   "titulo_mision": "${contexto}",
   "prompt_sdxl_base": "Warm children storybook illustration of ...",
@@ -56,13 +51,13 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:
           "nivel_codigo": "nivel_1",
           "nivel_nombre": "Nivel 1 · Ciclo III",
           "tema_curricular": "Tema del nivel",
-          "area_curricular": "Matemática",
-          "explicacion_previa": "Explicación corta...",
-          "ejemplo_corto": "Ejemplo: ...",
-          "instruccion": "Pregunta conectada al Capítulo 1...",
-          "tipo_mecanica": "input_numerico",
-          "opciones": ["18", "24", "28", "32"],
-          "respuesta_correcta": "24",
+          "area_curricular": "Área",
+          "explicacion_previa": "Teoría breve del tema...",
+          "ejemplo_corto": "Idea clave o ejemplo...",
+          "instruccion": "Pregunta sobre el tema...",
+          "tipo_mecanica": "opcion_multiple",
+          "opciones": ["Opción 1", "Opción 2", "Opción 3", "Opción 4"],
+          "respuesta_correcta": "Opción 1",
           "feedback_error": "Pista..."
         }
       ]
@@ -85,7 +80,6 @@ function normalizarMisionConTodosLosNiveles(
     selecciones
   );
 
-  // Si el LLM no devolvió las 3 fases completas, usar la historia conectada de 3 capítulos
   if (!Array.isArray(misionCruda.fases) || misionCruda.fases.length < 3) {
     return respaldo;
   }
@@ -105,19 +99,14 @@ function normalizarMisionConTodosLosNiveles(
         return retoResp;
       }
 
-      const respStr =
-        String(
-          retoEncontrado.respuesta_correcta || retoResp.respuesta_correcta
-        )
-          .replace(/[^0-9.-]/g, "")
-          .trim() || retoResp.respuesta_correcta;
+      const respStr = String(
+        retoEncontrado.respuesta_correcta || retoResp.respuesta_correcta
+      ).trim();
 
-      const opcionesFinales =
-        Array.isArray(retoEncontrado.opciones) &&
-        retoEncontrado.opciones.length >= 3 &&
-        retoEncontrado.opciones.includes(respStr)
-          ? retoEncontrado.opciones.map(String)
-          : generarOpcionesParaRespuesta(respStr);
+      const opcionesFinales = generarOpcionesParaRespuesta(
+        respStr,
+        retoEncontrado.opciones
+      );
 
       return {
         ...retoResp,
@@ -125,6 +114,7 @@ function normalizarMisionConTodosLosNiveles(
         nivel_codigo: retoResp.nivel_codigo,
         nivel_nombre: retoResp.nivel_nombre,
         tema_curricular: retoResp.tema_curricular,
+        area_curricular: retoResp.area_curricular,
         explicacion_previa:
           retoEncontrado.explicacion_previa || retoResp.explicacion_previa,
         ejemplo_corto:
@@ -164,14 +154,12 @@ async function generateMissionWithLiveLLM(
 ): Promise<MisionYuyAI | null> {
   const systemPrompt = buildDynamicSystemPrompt(selecciones, contexto);
 
+  // 1. Si hay clave de Google AI Studio activa
   if (apiKey && !apiKey.startsWith("AQ.")) {
-    const endpoints = [
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    ];
-
-    for (const url of endpoints) {
-      try {
-        const response = await fetch(url, {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -181,42 +169,43 @@ async function generateMissionWithLiveLLM(
               responseMimeType: "application/json",
             },
           }),
-        });
+        }
+      );
 
-        if (response.ok) {
-          const data = await response.json();
-          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (rawText) {
-            const parsed = JSON.parse(
-              rawText.replace(/```json|```/g, "").trim()
-            ) as MisionYuyAI;
-            if (parsed?.titulo_mision && Array.isArray(parsed?.fases)) {
-              return parsed;
-            }
+      if (response.ok) {
+        const data = await response.json();
+        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (rawText) {
+          const parsed = JSON.parse(
+            rawText.replace(/```json|```/g, "").trim()
+          ) as MisionYuyAI;
+          if (parsed?.titulo_mision && Array.isArray(parsed?.fases)) {
+            return parsed;
           }
         }
-      } catch {
-        // Continúa al generador conectado
       }
+    } catch {
+      // Continúa al LLM en vivo
     }
   }
 
-  // Intentar con motor LLM en vivo con límite de 6 segundos para no hacer esperar al profesor
+  // 2. Motor LLM en vivo con reasoning_effort="low" y timeout de 28 segundos para que siempre complete
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6500);
+    const timeoutId = setTimeout(() => controller.abort(), 28000);
 
     const llmRes = await fetch("https://text.pollinations.ai/openai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
       body: JSON.stringify({
-        model: "openai",
+        model: "openai-fast",
+        reasoning_effort: "low",
         messages: [
           {
             role: "system",
             content:
-              "Output valid JSON only. Ensure all 3 chapters (fases 1, 2, 3) tell a single continuous story with the same characters.",
+              "Responde únicamente con JSON válido. Genera preguntas reales del área de cada tema (Ciencia, Personal Social, Comunicación o Matemática).",
           },
           { role: "user", content: systemPrompt },
         ],
@@ -236,14 +225,14 @@ async function generateMissionWithLiveLLM(
         if (
           parsed?.titulo_mision &&
           Array.isArray(parsed?.fases) &&
-          parsed.fases.length === 3
+          parsed.fases.length >= 3
         ) {
           return parsed;
         }
       }
     }
   } catch {
-    // Si tarda más de 6.5s, usa inmediatamente el motor narrativo conectado por temas
+    // Usa el motor multitemático por área
   }
 
   return null;
@@ -252,7 +241,7 @@ async function generateMissionWithLiveLLM(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const tema = (body?.tema || "Resolución de problemas").trim();
+    const tema = (body?.tema || "Aprendizaje integrado").trim();
     const contexto = (
       body?.contexto || "El tejido cooperativo del puente colgante sobre el río"
     ).trim();
@@ -263,8 +252,8 @@ export async function POST(req: NextRequest) {
             {
               nivel_codigo: "nivel_1",
               nivel_nombre: "Nivel 1 · Ciclo III",
-              tema_titulo: "Sumas agrupando decenas y unidades",
-              area_curricular: "Matemática",
+              tema_titulo: "Las partes de las plantas nativas y su crecimiento",
+              area_curricular: "Ciencia y Tecnología",
             },
             {
               nivel_codigo: "nivel_2",
@@ -275,8 +264,9 @@ export async function POST(req: NextRequest) {
             {
               nivel_codigo: "nivel_3",
               nivel_nombre: "Nivel 3 · Ciclo V",
-              tema_titulo: "Fracciones de una cantidad total",
-              area_curricular: "Matemática",
+              tema_titulo:
+                "Las regiones naturales y pisos ecológicos de los Andes",
+              area_curricular: "Personal Social",
             },
           ];
 
@@ -313,11 +303,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       mision,
+      fuente_generacion: misionCruda ? "ia_en_vivo" : "motor_multitematico",
       guardado_en_supabase: !dbError,
     });
   } catch {
     const fallback = construirMisionMultinivelContextual(
-      "Matemática en la comunidad",
+      "Saberes de la escuela",
       "El tejido cooperativo del puente colgante sobre el río"
     );
     return NextResponse.json({ mision: fallback, guardado_en_supabase: false });
